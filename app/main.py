@@ -28,10 +28,10 @@ log = logging.getLogger("app")
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     missing = missing_config()
+    if "MASTER_KEY" in missing:
+        raise RuntimeError("MASTER_KEY is not set; refusing to start without encryption")
     if missing:
-        if get_settings().env == "prod":
-            raise RuntimeError(f"missing required settings: {', '.join(missing)}")
-        log.warning("missing settings (fine for local dev): %s", ", ".join(missing))
+        log.warning("still to configure: %s", ", ".join(missing))
     init_db()
     yield
 
@@ -45,6 +45,12 @@ _user_locks: dict[str, threading.Lock] = defaultdict(threading.Lock)
 @app.get("/health")
 def health() -> dict:
     return {"ok": True}
+
+
+@app.get("/setup-status")
+def setup_status() -> dict:
+    """Which settings are still missing (names only, never values)."""
+    return {"base_url": get_settings().base_url, "missing": missing_config()}
 
 
 # ------------------------------------------------------------------ WhatsApp

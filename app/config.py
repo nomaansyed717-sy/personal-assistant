@@ -1,4 +1,5 @@
 """Runtime settings, read from environment variables (see .env.example)."""
+import os
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -46,11 +47,16 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    # On Render, the public URL is provided automatically.
+    render_url = os.environ.get("RENDER_EXTERNAL_URL")
+    if render_url and s.base_url == "http://localhost:8000":
+        s.base_url = render_url
+    return s
 
 
 def missing_config(s: Settings | None = None) -> list[str]:
-    """Settings the app can't run safely without. In prod the web service refuses to start if any are missing."""
+    """Settings still to fill in. Only MASTER_KEY is fatal; the rest are reported so setup can happen in stages."""
     s = s or get_settings()
     required = {
         "MASTER_KEY": s.master_key,
