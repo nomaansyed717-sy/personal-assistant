@@ -60,7 +60,7 @@ TEST_DATABASE_URL=postgresql+psycopg://assistant:assistant@localhost:5432/assist
 ## Go live
 
 ### 1. Deploy (Render, one click)
-New → Blueprint → select this repo. `render.yaml` creates the Postgres database, the web service and the worker. Fill in the secrets it asks for. `BASE_URL` is the web service's `https://…onrender.com` URL. Railway, Fly.io or any Docker host work too: run the image twice, once with the worker command `python -m app.worker.run`.
+New → Blueprint → select this repo. `render.yaml` creates the Postgres database, the web service and the worker. Fill in the secrets it asks for. `MASTER_KEY` is generated for you and `BASE_URL` is picked up from Render automatically. `GET /setup-status` lists any settings still missing. Railway, Fly.io or any Docker host work too: run the image twice, once with the worker command `python -m app.worker.run`.
 
 ### 2. WhatsApp (Meta)
 1. On developers.facebook.com, create an app of type Business, then add **WhatsApp**.

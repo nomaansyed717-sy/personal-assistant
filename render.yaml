@@ -1,5 +1,6 @@
 # One-click deploy on Render: New > Blueprint > pick this repo.
-# Fill the "sync: false" secrets in the dashboard when prompted.
+# Fill the "sync: false" secrets in the dashboard when prompted. MASTER_KEY is generated;
+# BASE_URL comes from RENDER_EXTERNAL_URL. Back up MASTER_KEY: losing it makes stored data unreadable.
 databases:
   - name: assistant-db
     plan: basic-256mb
@@ -10,8 +11,7 @@ envVarGroups:
     envVars:
       - { key: ENV, value: prod }
       - { key: APP_NAME, value: Aide }
-      - { key: BASE_URL, sync: false }
-      - { key: MASTER_KEY, sync: false }
+      - { key: MASTER_KEY, generateValue: true }
       - { key: ANTHROPIC_API_KEY, sync: false }
       - { key: WHATSAPP_TOKEN, sync: false }
       - { key: WHATSAPP_PHONE_NUMBER_ID, sync: false }
