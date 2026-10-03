@@ -88,3 +88,13 @@ def test_ranking_prefers_important_people_overdue_items_and_avoids_nagging():
     assert score(_c(person=vip)) > score(_c(person=vip, times_surfaced=3))
     assert score(_c(person=vip)) > score(_c(person=vip, direction="owed_to_user"))
     assert score(_c(person=vip, made_at=now() - timedelta(days=60))) < score(_c(person=vip))
+
+
+def test_base_url_from_hosting_env(monkeypatch):
+    from app.config import get_settings
+
+    monkeypatch.delenv("BASE_URL", raising=False)
+    monkeypatch.setenv("RAILWAY_PUBLIC_DOMAIN", "aide-production.up.railway.app")
+    get_settings.cache_clear()
+    assert get_settings().base_url == "https://aide-production.up.railway.app"
+    get_settings.cache_clear()
