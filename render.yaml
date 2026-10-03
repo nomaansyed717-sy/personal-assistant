@@ -1,0 +1,42 @@
+# One-click deploy on Render: New > Blueprint > pick this repo.
+# Fill the "sync: false" secrets in the dashboard when prompted.
+databases:
+  - name: assistant-db
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+
+envVarGroups:
+  - name: assistant-secrets
+    envVars:
+      - { key: ENV, value: prod }
+      - { key: APP_NAME, value: Aide }
+      - { key: BASE_URL, sync: false }
+      - { key: MASTER_KEY, sync: false }
+      - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: WHATSAPP_TOKEN, sync: false }
+      - { key: WHATSAPP_PHONE_NUMBER_ID, sync: false }
+      - { key: WHATSAPP_VERIFY_TOKEN, sync: false }
+      - { key: WHATSAPP_APP_SECRET, sync: false }
+      - { key: GOOGLE_CLIENT_ID, sync: false }
+      - { key: GOOGLE_CLIENT_SECRET, sync: false }
+
+services:
+  - type: web
+    name: assistant-web
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: assistant-secrets
+      - key: DATABASE_URL
+        fromDatabase: { name: assistant-db, property: connectionString }
+
+  - type: worker
+    name: assistant-worker
+    runtime: docker
+    plan: starter
+    dockerCommand: python -m app.worker.run
+    envVars:
+      - fromGroup: assistant-secrets
+      - key: DATABASE_URL
+        fromDatabase: { name: assistant-db, property: connectionString }
