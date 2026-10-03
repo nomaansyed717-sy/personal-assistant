@@ -48,10 +48,12 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     s = Settings()
-    # On Render, the public URL is provided automatically.
-    render_url = os.environ.get("RENDER_EXTERNAL_URL")
-    if render_url and s.base_url == "http://localhost:8000":
-        s.base_url = render_url
+    # On Render and Railway, the public URL is provided automatically.
+    if s.base_url == "http://localhost:8000":
+        if os.environ.get("RENDER_EXTERNAL_URL"):
+            s.base_url = os.environ["RENDER_EXTERNAL_URL"]
+        elif os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
+            s.base_url = "https://" + os.environ["RAILWAY_PUBLIC_DOMAIN"]
     return s
 
 
