@@ -130,3 +130,16 @@ def test_real_accounts_cannot_use_demo_controls(channel, fake_llm):
     assert c.get("/api/demo/status").status_code == 404
     assert c.post("/api/demo/run", json={"what": "brief"}, headers=H).status_code == 404
     assert c.get("/api/me").json()["demo"] is False
+
+
+def test_chat_says_so_when_the_model_is_unreachable(channel, fake_llm):
+    c = TestClient(app, base_url="https://testserver")
+    _start(c)
+
+    def boom(*a, **k):
+        raise RuntimeError("400 workspace header missing")
+
+    fake_llm.complete = boom
+    r = c.post("/api/chat", json={"text": "what's on today?"}, headers=H)
+    assert r.status_code == 200 and "couldn't reach my AI model" in r.json()["reply"]
+    assert any(m["text"] == "what's on today?" for m in c.get("/api/messages").json())
