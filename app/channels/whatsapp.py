@@ -40,7 +40,14 @@ def parse_webhook(payload: dict) -> list[InboundMessage]:
                 sender = m.get("from", "")
                 mtype = m.get("type")
                 text, kind = "", "text"
-                if mtype == "text":
+                media_id = mime = filename = None
+                if mtype in ("image", "document", "audio", "voice", "video", "sticker"):
+                    media = m.get(mtype, {})
+                    media_id, mime = media.get("id"), media.get("mime_type")
+                    filename = media.get("filename")
+                    text = media.get("caption", "") or ""
+                    kind = {"voice": "audio", "video": "unsupported", "sticker": "unsupported"}.get(mtype, mtype)
+                elif mtype == "text":
                     text = m.get("text", {}).get("body", "")
                 elif mtype == "button":
                     text, kind = m.get("button", {}).get("text", ""), "button"
@@ -48,7 +55,7 @@ def parse_webhook(payload: dict) -> list[InboundMessage]:
                     inter = m.get("interactive", {})
                     reply = inter.get("button_reply") or inter.get("list_reply") or {}
                     text, kind = reply.get("title", ""), "button"
-                else:
+                elif mtype not in ("image", "document", "audio", "voice", "video", "sticker"):
                     kind = "unsupported"
                 out.append(
                     InboundMessage(
@@ -58,6 +65,9 @@ def parse_webhook(payload: dict) -> list[InboundMessage]:
                         profile_name=names.get(sender),
                         kind=kind,
                         raw=m,
+                        media_id=media_id,
+                        mime=mime,
+                        filename=filename,
                     )
                 )
     return out
@@ -94,6 +104,18 @@ class WhatsAppChannel(Channel):
                 "text": {"body": text, "preview_url": False},
             }
         )
+
+    def download_media(self, media_id: str) -> tuple[bytes, str]:
+        base = self.url.rsplit("/", 2)[0]  # https://graph.facebook.com/vXX
+        auth = {"Authorization": f"Bearer {self.token}"}
+        meta = self.client.get(f"{base}/{media_id}", headers=auth)
+        meta.raise_for_status()
+        info = meta.json()
+        blob = self.client.get(info["url"], headers=auth)
+        blob.raise_for_status()
+        if len(blob.content) > 20_000_000:
+            raise ValueError("attachment too large")
+        return blob.content, info.get("mime_type", "application/octet-stream")
 
     def send_template(self, phone: str, template: str, params: list[str]) -> str | None:
         components = []
