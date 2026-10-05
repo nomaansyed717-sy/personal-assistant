@@ -104,6 +104,25 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
   #chat-view{height:calc(100vh - 130px)}
   .msg{max-width:90%}
 }
+/* live demo */
+.demo-bar{background:var(--marigold-soft);border:1px solid var(--marigold);border-radius:var(--radius-s);padding:10px 14px;
+  margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.demo-bar p{margin:0;font-size:.9rem;flex:1 1 260px}
+.demo-bar .btn{padding:.4rem .9rem;font-size:.88rem}
+.demo-ctl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 2px}
+.demo-ctl span{font-size:.85rem;font-weight:600;color:var(--muted);margin-right:2px}
+.demo-ctl button{border:1px solid var(--marigold);background:var(--paper);border-radius:999px;padding:.35rem .8rem;cursor:pointer;font-size:.88rem;font-weight:600}
+.demo-ctl button:disabled{opacity:.5;cursor:default}
+.working{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.9rem;margin:6px 2px}
+.working::before{content:"";flex:none;width:9px;height:9px;border-radius:50%;background:var(--marigold)}
+@media (prefers-reduced-motion:no-preference){ .working::before{animation:pulse .9s infinite alternate} @keyframes pulse{from{opacity:.25}to{opacity:1}} }
+.pill{font-size:.7rem;font-weight:700;background:var(--marigold);color:#2B1C02;border-radius:999px;padding:.05rem .45rem;margin-left:.4rem;vertical-align:middle}
+.mail{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-s);padding:10px 14px;display:grid;gap:2px}
+.mail .top{display:flex;justify-content:space-between;gap:10px;font-size:.85rem;color:var(--muted)}
+.mail.sent{border-left:3px solid var(--leaf)} .mail.news{opacity:.65}
+.section-title{margin:18px 0 8px;font-size:1rem}
+.login-card .demo-cta{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+.login-card .demo-cta .btn{margin-top:.6rem}
 @media (prefers-reduced-motion:no-preference){ .slip{animation:in .25s ease-out} @keyframes in{from{transform:translateY(4px);opacity:0}} }
 </style>
 </head>
@@ -125,6 +144,10 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
       <p class="small muted">No code? Send "hi" to your assistant on WhatsApp, then try again.</p>
     </form>
     <p id="login-msg" class="small" role="status"></p>
+    <div class="demo-cta">
+      <p class="small muted">No account yet? Try the real assistant on a sample inbox and calendar. Nothing is sent, booked or paid.</p>
+      <button class="btn ghost" id="try-demo" type="button">Try the live demo</button>
+    </div>
   </div>
 </section>
 
@@ -132,6 +155,7 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
   <nav class="rail" aria-label="Sections">
     <div class="brand" id="brand">{{APP_NAME}}</div>
     <a href="#chat">Chat</a>
+    <a href="#inbox" id="nav-inbox" hidden>Sample inbox</a>
     <a href="#approvals">Approvals <span class="badge" id="approval-count" hidden></span></a>
     <a href="#activity">Activity</a>
     <a href="#goals">Goals</a>
@@ -145,7 +169,20 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
   </nav>
   <main>
     <section class="view" id="chat-view" data-view="chat">
+      <div class="demo-bar" id="demo-bar" hidden>
+        <p><strong>Live demo.</strong> The assistant is real. The inbox, calendar and outside world are simulated, so nothing is actually sent, booked or paid.</p>
+        <a class="btn ghost" href="#inbox">Sample inbox</a>
+        <button class="btn ghost" id="demo-reset" type="button">Start over</button>
+      </div>
       <div id="thread" aria-live="polite"></div>
+      <div class="working" id="working" role="status" hidden></div>
+      <div class="demo-ctl" id="demo-ctl" hidden>
+        <span>Make something happen:</span>
+        <button type="button" data-run="email">A new email arrives</button>
+        <button type="button" data-run="brief">Morning brief</button>
+        <button type="button" data-run="tasks">Run standing tasks</button>
+        <button type="button" data-run="ideas">Evening ideas</button>
+      </div>
       <div class="suggest" id="suggest">
         <button>What's open?</button><button>What are you planning?</button>
         <button>Plan my week around my goals</button><button>Find subscriptions I can cancel</button>
@@ -154,6 +191,16 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
         <textarea id="say" placeholder="Message your assistant" aria-label="Message"></textarea>
         <button class="btn" type="submit">Send</button>
       </form>
+    </section>
+
+    <section class="view" data-view="inbox" hidden>
+      <header><div><h2>Sample inbox</h2><p class="muted">What your assistant can see in this demo. Emails it sends for you land in Sent here, and nowhere else.</p></div></header>
+      <h3 class="section-title">Calendar</h3>
+      <div class="list" id="demo-cal"></div>
+      <h3 class="section-title">Sent by your assistant</h3>
+      <div class="list" id="demo-sent"></div>
+      <h3 class="section-title">Mail</h3>
+      <div class="list" id="demo-mail"></div>
     </section>
 
     <section class="view" data-view="approvals" hidden>
@@ -295,7 +342,7 @@ function schedText(s) {
 }
 const KIND_LABELS = {send_email: 'Email, ready to send', reply_email: 'Reply, ready to send', create_event: 'Calendar hold',
   purchase: 'Purchase, you do the checkout', browser_task: 'Web task on the secure browser', phone_call: 'Phone call',
-  send_message: 'Message, ready to send'};
+  send_message: 'Message, ready to send', note: 'Reminder to close the loop'};
 const FIELD_LABELS = {to: 'To', cc: 'Cc', subject: 'Subject', body: 'Message', title: 'Title', start: 'Starts', end: 'Ends',
   attendees: 'Guests', item: 'Item', price: 'Price', merchant: 'Store', url: 'Link', goal: 'Goal', start_url: 'Starts at'};
 function slipDetails(p) {
@@ -321,7 +368,23 @@ const loaders = {
     const msgs = await api('/messages'); const t = $('#thread'); t.textContent = '';
     if (!msgs.length) empty(t, 'Say hello, or try one of the suggestions below.');
     msgs.forEach(m => addMsg(m.from, m.text, m.at, m.channel));
+    lastMsgId = msgs.length ? msgs[msgs.length - 1].id : 0;
     t.scrollTop = t.scrollHeight;
+  },
+  async inbox() {
+    const w = await api('/demo/world');
+    const cal = $('#demo-cal'); cal.textContent = '';
+    if (!w.calendar.length) empty(cal, 'No events.');
+    w.calendar.forEach(e => { const r = h('div', 'row'); r.append(h('div', 'body', e.title), h('div', 'small muted', when(e.start))); cal.append(r); });
+    const sent = $('#demo-sent'); sent.textContent = '';
+    if (!w.sent.length) empty(sent, 'Nothing yet. Approve an email draft and it shows up here.');
+    w.sent.slice().reverse().forEach(m => { const r = h('div', 'mail sent');
+      const top = h('div', 'top'); top.append(h('span', null, 'To ' + m.to.join(', ')), h('span', null, when(m.at)));
+      r.append(top, h('strong', null, m.subject || '(no subject)'), h('div', 'small', m.body)); sent.append(r); });
+    const mail = $('#demo-mail'); mail.textContent = '';
+    w.inbox.forEach(m => { const r = h('div', 'mail' + (m.sent ? ' sent' : '') + (m.newsletter ? ' news' : ''));
+      const top = h('div', 'top'); top.append(h('span', null, m.sent ? 'You → ' + m.to : m.from), h('span', null, when(m.at)));
+      r.append(top, h('strong', null, m.subject + (m.newsletter ? ' (newsletter, skipped)' : '')), h('div', 'small muted', m.snippet)); mail.append(r); });
   },
   async approvals() {
     const list = await api('/approvals'); const box = $('#approvals'); box.textContent = '';
@@ -426,7 +489,8 @@ function alertRow(el, text) { const p = rich(h('p', 'small'), text); el.append(p
 function addMsg(from, text, at, channel) {
   const t = $('#thread'); t.querySelector('.empty')?.remove();
   const m = rich(h('div', 'msg ' + (from === 'me' ? 'me' : 'assistant')), text);
-  if (at) m.append(h('span', 'meta', when(at) + (channel === 'whatsapp' ? ' · WhatsApp' : '')));
+  const via = {whatsapp: ' · WhatsApp', demo: ' · WhatsApp (simulated)'}[channel] || '';
+  if (at) m.append(h('span', 'meta', when(at) + via));
   t.append(m); t.scrollTop = t.scrollHeight;
 }
 async function refreshBadge() {
@@ -434,9 +498,58 @@ async function refreshBadge() {
 }
 $('#composer').onsubmit = async e => {
   e.preventDefault(); const text = $('#say').value.trim(); if (!text) return;
-  $('#say').value = ''; addMsg('me', text); const typing = rich(h('div', 'msg assistant muted'), '…'); $('#thread').append(typing);
-  try { const r = await api('/chat', {method:'POST', body:{text}}); typing.remove(); if (r.reply) addMsg('assistant', r.reply); refreshBadge(); }
+  $('#say').value = ''; addMsg('me', text); const typing = rich(h('div', 'msg assistant muted'), 'Thinking…'); $('#thread').append(typing);
+  sending = true;
+  try { await api('/chat', {method:'POST', body:{text}}); typing.remove(); await loaders.chat(); refreshBadge(); }
   catch (err) { typing.remove(); addMsg('assistant', err.message); }
+  finally { sending = false; }
+};
+
+// ---- live updates: messages the assistant sends on its own (briefs, task results, demo steps) appear without a reload
+let lastMsgId = 0, sending = false, ME = null, wasBusy = false;
+async function pollMessages() {
+  if (sending || document.hidden || $('#shell').hidden || $('#chat-view').hidden) return;
+  try {
+    const msgs = await api('/messages');
+    const fresh = msgs.filter(m => m.id > lastMsgId);
+    if (fresh.length) { fresh.forEach(m => addMsg(m.from, m.text, m.at, m.channel)); lastMsgId = fresh[fresh.length - 1].id; refreshBadge(); }
+  } catch {}
+}
+setInterval(pollMessages, 4000);
+
+// ---- live demo
+async function startDemo() {
+  $('#login-msg').textContent = 'Setting up your demo…'; $('#try-demo').disabled = true;
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
+    await api('/demo/start', {method:'POST', body:{tz}});
+    $('#login-msg').textContent = ''; location.hash = '#chat'; await boot();
+  } catch (err) { $('#login-msg').textContent = err.message; }
+  finally { $('#try-demo').disabled = false; }
+}
+$('#try-demo').onclick = startDemo;
+async function pollDemo() {
+  if (!ME?.demo || document.hidden) return;
+  try {
+    const st = await api('/demo/status');
+    const w = $('#working'); w.hidden = !st.busy; w.textContent = st.busy ? (st.stage || 'Working') + '…' : '';
+    document.querySelectorAll('#demo-ctl button').forEach(b => b.disabled = st.busy);
+    if (wasBusy && !st.busy) { await pollMessages(); refreshBadge(); }
+    if (st.busy) pollMessages();
+    wasBusy = st.busy;
+  } catch {}
+}
+setInterval(pollDemo, 2000);
+$('#demo-ctl').onclick = async e => {
+  const what = e.target.dataset?.run; if (!what) return;
+  try { await api('/demo/run', {method:'POST', body:{what}}); wasBusy = true; pollDemo(); }
+  catch (err) { const w = $('#working'); w.hidden = false; w.textContent = err.message; }
+};
+$('#demo-reset').onclick = async () => {
+  $('#demo-reset').disabled = true;
+  try { await api('/demo/reset', {method:'POST'}); location.hash = '#chat'; await boot(); }
+  catch (err) { addMsg('assistant', err.message); }
+  finally { $('#demo-reset').disabled = false; }
 };
 $('#say').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#composer').requestSubmit(); } });
 $('#suggest').onclick = e => { if (e.target.tagName === 'BUTTON') { $('#say').value = e.target.textContent; $('#composer').requestSubmit(); } };
@@ -462,8 +575,11 @@ function route() {
   (loaders[v] || loaders.chat)().catch(() => {});
 }
 async function boot() {
-  try { const me = await api('/me'); $('#brand').textContent = me.assistant_name || '{{APP_NAME}}'; document.title = me.assistant_name || '{{APP_NAME}}'; }
-  catch { return; }
+  try { const me = await api('/me'); ME = me; $('#brand').textContent = me.assistant_name || '{{APP_NAME}}'; document.title = me.assistant_name || '{{APP_NAME}}'; }
+  catch { if (location.hash === '#try') startDemo(); return; }
+  const isDemo = !!ME.demo;
+  ['#demo-bar', '#demo-ctl', '#nav-inbox'].forEach(sel => $(sel).hidden = !isDemo);
+  if (isDemo) { const p = $('#brand').querySelector('.pill') || h('span', 'pill', 'Demo'); $('#brand').append(p); wasBusy = true; pollDemo(); }
   $('#login').hidden = true; $('#shell').hidden = false; route(); refreshBadge();
 }
 window.addEventListener('hashchange', route);
