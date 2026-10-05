@@ -29,15 +29,18 @@ def test_parse_webhook_text_and_button_and_status():
             "messages": [
                 {"from": "447700900123", "id": "w1", "type": "text", "text": {"body": " 1, 3 "}},
                 {"from": "447700900123", "id": "w2", "type": "interactive", "interactive": {"button_reply": {"title": "Yes"}}},
-                {"from": "447700900123", "id": "w3", "type": "audio", "audio": {}},
+                {"from": "447700900123", "id": "w3", "type": "audio", "audio": {"id": "m1", "mime_type": "audio/ogg"}},
+                {"from": "447700900123", "id": "w4", "type": "video", "video": {"id": "m2"}},
+                {"from": "447700900123", "id": "w5", "type": "image", "image": {"id": "m3", "mime_type": "image/jpeg", "caption": "receipt"}},
             ],
             "statuses": [{"id": "x", "status": "read"}],
         }}]}]
     }
     msgs = parse_webhook(payload)
-    assert [m.text for m in msgs] == ["1, 3", "Yes", ""]
+    assert [m.text for m in msgs] == ["1, 3", "Yes", "", "", "receipt"]
     assert msgs[0].phone == "+447700900123" and msgs[0].profile_name == "Ana"
-    assert [m.kind for m in msgs] == ["text", "button", "unsupported"]
+    assert [m.kind for m in msgs] == ["text", "button", "audio", "unsupported", "image"]
+    assert msgs[2].media_id == "m1" and msgs[4].mime == "image/jpeg"
 
 
 def test_phone_and_timezone_guess_global():

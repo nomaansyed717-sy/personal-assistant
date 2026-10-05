@@ -12,6 +12,9 @@ os.environ["GOOGLE_CLIENT_SECRET"] = "secret"
 os.environ["WHATSAPP_TOKEN"] = ""
 os.environ["WHATSAPP_APP_SECRET"] = ""
 os.environ["APP_NAME"] = "Aide"
+os.environ["RUN_WORKER_IN_WEB"] = "false"
+os.environ["ALLOW_PRIVATE_URLS"] = "false"
+os.environ["ANTHROPIC_API_KEY"] = ""
 
 import pytest  # noqa: E402
 
