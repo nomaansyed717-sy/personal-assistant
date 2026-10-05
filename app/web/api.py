@@ -123,6 +123,97 @@ def login_verify(body: LoginVerify, request: Request, response: Response):
     return {"ok": True}
 
 
+def _start_session(s, user_id: int, response: Response, days: int = SESSION_DAYS) -> None:
+    token = secrets.token_urlsafe(32)
+    s.add(WebSession(token_hash=_hash(token), user_id=user_id, expires_at=utcnow() + timedelta(days=days)))
+    response.set_cookie(COOKIE, token, max_age=days * 86400, httponly=True, samesite="strict",
+                        secure=get_settings().base_url.startswith("https"))
+
+
+# ------------------------------------------------------------------ live demo
+
+
+class DemoStart(BaseModel):
+    tz: str = Field(default="Asia/Kolkata", max_length=64)
+
+
+def _client_ip(request: Request) -> str:
+    return (request.client.host if request.client else "") or "unknown"
+
+
+@router.post("/demo/start")
+def demo_start(body: DemoStart, request: Request, response: Response):
+    from app import demo
+
+    _csrf(request)
+    if not get_settings().demo_enabled:
+        raise HTTPException(status_code=404, detail="the demo is switched off")
+    if not demo.allow_new_demo(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="Too many demos from here. Try again in an hour.")
+    with session_scope() as s:
+        user = demo.create_demo_user(s, body.tz, get_settings().app_name)
+        uid = user.id
+        audit(s, uid, "demo_started", "", actor="user")
+        _start_session(s, uid, response, days=1)
+    demo.start_run(uid, "welcome")
+    return {"ok": True}
+
+
+def _demo_uid(uid: int) -> int:
+    with session_scope() as s:
+        u = s.get(User, uid)
+        if not u or not u.demo:
+            raise HTTPException(status_code=404, detail="not a demo account")
+    return uid
+
+
+@router.get("/demo/status")
+def demo_status(uid: int = Depends(current_user_id)):
+    from app import demo
+
+    return demo.status(_demo_uid(uid))
+
+
+class DemoRun(BaseModel):
+    what: str = Field(pattern="^(brief|email|tasks|ideas)$")
+
+
+@router.post("/demo/run")
+def demo_run(body: DemoRun, uid: int = Depends(current_user_id)):
+    from app import demo
+
+    if not demo.start_run(_demo_uid(uid), body.what):
+        raise HTTPException(status_code=409, detail="Still working on the last step, or this demo has used all its runs.")
+    return demo.status(uid)
+
+
+@router.get("/demo/world")
+def demo_world(uid: int = Depends(current_user_id)):
+    from app import demo
+
+    _demo_uid(uid)
+    with session_scope() as s:
+        tz = s.get(User, uid).timezone
+    w = demo.world_for(uid, tz)
+    return {"inbox": w.inbox(), "calendar": w.calendar(), "sent": w.sent_by_assistant}
+
+
+@router.post("/demo/reset")
+def demo_reset(request: Request, response: Response, uid: int = Depends(current_user_id)):
+    from app import demo
+
+    _demo_uid(uid)
+    with session_scope() as s:
+        tz = s.get(User, uid).timezone
+        demo.delete_demo_user(s, uid)
+    with session_scope() as s:
+        user = demo.create_demo_user(s, tz, get_settings().app_name)
+        new_uid = user.id
+        _start_session(s, new_uid, response, days=1)
+    demo.start_run(new_uid, "welcome")
+    return {"ok": True}
+
+
 @router.post("/logout")
 def logout(request: Request, response: Response, uid: int = Depends(current_user_id)):
     token = request.cookies.get(COOKIE, "")
@@ -143,7 +234,8 @@ def me(uid: int = Depends(current_user_id)):
         u = s.get(User, uid)
         return {"name": u.name, "assistant_name": u.assistant_name, "persona": u.persona, "timezone": u.timezone,
                 "brief_hour": u.brief_hour, "ideas_enabled": u.ideas_enabled, "training_opt_in": u.training_opt_in,
-                "paused": u.paused, "onboarding_state": u.onboarding_state, "phone": u.phone[:-4] + "••••"}
+                "paused": u.paused, "onboarding_state": u.onboarding_state, "demo": bool(u.demo),
+                "phone": "demo" if u.demo else u.phone[:-4] + "••••"}
 
 
 @router.get("/messages")
@@ -161,10 +253,13 @@ class ChatIn(BaseModel):
 
 @router.post("/chat")
 def chat(body: ChatIn, uid: int = Depends(current_user_id)):
+    from app import demo
     from app.crypto import encrypt
 
     with _locks[uid], session_scope() as s:
         user = s.get(User, uid)
+        if not demo.chat_allowed(s, user, get_settings().demo_messages):
+            return {"reply": "This demo has used all its messages. Tap *Start over* for a fresh one, or sign up to keep going."}
         record_inbound(s, user, body.text, None, "web")
         reply = route(s, user, body.text, get_llm()) or ""
         if reply.startswith("\x00deleted:"):
