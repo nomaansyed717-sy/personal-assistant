@@ -53,9 +53,14 @@ STATIC = Path(__file__).parent / "web" / "static"
 def _static_page(name: str) -> str:
     s = get_settings()
     html = (STATIC / name).read_text(encoding="utf-8").replace("{{APP_NAME}}", escape(s.app_name))
+    demo = '<a class="btn {cls}" href="/app#try">Try the live demo</a>'
     if s.public_whatsapp_number:
         num = "".join(ch for ch in s.public_whatsapp_number if ch.isdigit())
         cta = f'<a class="btn primary" href="https://wa.me/{num}?text=hi">Message {escape(s.app_name)} on WhatsApp</a>'
+        if s.demo_enabled:
+            cta += demo.format(cls="quiet")
+    elif s.demo_enabled:
+        cta = demo.format(cls="primary") + '<a class="btn quiet" href="/app">Sign in</a>'
     else:
         cta = '<a class="btn primary" href="/app">Get started</a>'
     return html.replace("{{WA_CTA}}", cta)

@@ -44,6 +44,8 @@ class Settings(BaseSettings):
 
     # Secure computer (browser agent)
     browser_enabled: bool = True
+    demo_enabled: bool = True  # "Try the live demo" sandbox accounts
+    demo_messages: int = 40  # chat messages allowed per demo account
     browser_max_steps: int = 25
     allow_private_urls: bool = False  # tests only; Sentinel blocks internal addresses otherwise
 

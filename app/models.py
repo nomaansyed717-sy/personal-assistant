@@ -48,6 +48,7 @@ class User(Base):
     ideas_enabled: Mapped[bool] = mapped_column(Boolean, default=True)  # daily proactive suggestions
     last_ideas_on: Mapped[date | None] = mapped_column(Date)
     training_opt_in: Mapped[bool] = mapped_column(Boolean, default=False)
+    demo: Mapped[bool] = mapped_column(Boolean, default=False)  # live-demo sandbox account: outside world simulated
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
 
     connections: Mapped[list["Connection"]] = relationship(back_populates="user", cascade="all, delete-orphan")

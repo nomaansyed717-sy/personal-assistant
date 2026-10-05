@@ -42,6 +42,9 @@ def window_open(user: User) -> bool:
 
 def send(session: Session, user: User, text: str) -> None:
     """Send now if the session window is open; otherwise queue it and ping with the reopen template."""
+    if user.demo:  # live-demo accounts: keep the message for the web app, deliver nothing
+        session.add(Message(user_id=user.id, direction="out", channel="demo", body_enc=encrypt(user.id, text)))
+        return
     channel = get_channel()
     if channel.has_session_window and not window_open(user):
         _queue(session, user, text)
