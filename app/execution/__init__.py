@@ -38,7 +38,7 @@ def register(kind: str):
 
 def get_executor(kind: str) -> Executor:
     # Import modules so their @register decorators run.
-    from app.execution import api, browser, desktop, phone, voice  # noqa: F401
+    from app.execution import api, browser, commerce, desktop, phone, voice  # noqa: F401
 
     if kind not in _registry:
         raise NotAvailable(f"no executor for {kind}")
