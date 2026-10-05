@@ -398,6 +398,10 @@ def run_welcome(user_id: int) -> None:
             _sync_and_extract(s, user, llm)
         except Exception:  # noqa: BLE001
             log.exception("demo extraction failed for user %s", user_id)
+        found = s.scalar(select(Commitment.id).where(Commitment.user_id == user_id).limit(1))
+        if not found:
+            _say(s, user, "Heads up: I can't reach my AI model on this server right now, so the open loops below "
+                          "are pre-filled examples rather than ones I found myself.")
         _fallback_loops(s, user)
     _set(user_id, True, "Writing your morning brief")
     with session_scope() as s:

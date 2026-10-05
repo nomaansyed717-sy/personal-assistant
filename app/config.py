@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     # Claude
     anthropic_api_key: str = ""
+    anthropic_workspace_id: str = ""  # only for keys not scoped to a workspace (console > Settings > Workspaces)
     model_smart: str = "claude-sonnet-5-5"  # planning, drafting, conversation
     model_fast: str = "claude-haiku-4-5-20251001"  # extraction, classification
 

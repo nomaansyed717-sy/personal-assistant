@@ -40,7 +40,9 @@ class AnthropicLLM(LLM):
         import anthropic
 
         s = get_settings()
-        self.client = client or anthropic.Anthropic(api_key=s.anthropic_api_key, max_retries=3)
+        # Keys that aren't scoped to one workspace must name the workspace on every request.
+        headers = {"anthropic-workspace-id": s.anthropic_workspace_id} if s.anthropic_workspace_id else None
+        self.client = client or anthropic.Anthropic(api_key=s.anthropic_api_key, max_retries=3, default_headers=headers)
         self.smart = s.model_smart
         self.fast = s.model_fast
 
