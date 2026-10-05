@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
@@ -35,6 +35,11 @@ def get_engine():
         if url.startswith("sqlite"):
             kwargs = {"connect_args": {"check_same_thread": False}}
         _engine = create_engine(url, **kwargs)
+        if url.startswith("sqlite"):
+            # SQLite ignores ON DELETE CASCADE unless foreign keys are switched on per connection.
+            @event.listens_for(_engine, "connect")
+            def _fk_on(dbapi_conn, _record):
+                dbapi_conn.execute("PRAGMA foreign_keys=ON")
         _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False)
     return _engine
 
