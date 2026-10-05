@@ -72,6 +72,36 @@ def job_briefs() -> None:
             log.exception("brief failed for user %s", uid)
 
 
+def job_tasks() -> None:
+    """Standing tasks: the assistant keeps working after the user closes the chat."""
+    from app import standing
+    from app.agent.agent import run_background
+
+    llm = get_llm()
+    with session_scope() as s:
+        n = standing.run_due(s, lambda sess, user, task: run_background(sess, user, task.instruction, llm))
+        if n:
+            log.info("ran %d standing tasks", n)
+
+
+def job_ideas() -> None:
+    from app import ideas
+
+    llm = get_llm()
+    for uid in _user_ids():
+        try:
+            with session_scope() as s:
+                user = s.get(User, uid)
+                if not ideas.due(user):
+                    continue
+                text = ideas.compose(s, user, llm)
+                ideas.mark_sent(user)
+                if text:
+                    send(s, user, text)
+        except Exception:  # noqa: BLE001
+            log.exception("ideas failed for user %s", uid)
+
+
 def job_daily() -> None:
     llm = get_llm()
     with session_scope() as s:
@@ -86,14 +116,31 @@ def job_daily() -> None:
             log.exception("voice refresh failed for user %s", uid)
 
 
-def main() -> None:
-    init_db()
+def add_jobs(sched) -> None:
     cfg = get_settings()
-    sched = BlockingScheduler(timezone="UTC")
     sched.add_job(job_dispatch, "interval", seconds=20, max_instances=1, coalesce=True)
+    sched.add_job(job_tasks, "interval", seconds=60, max_instances=1, coalesce=True)
     sched.add_job(job_sync, "interval", minutes=cfg.sync_interval_minutes, max_instances=1, coalesce=True)
     sched.add_job(job_briefs, "cron", minute="*/5", max_instances=1, coalesce=True)
+    sched.add_job(job_ideas, "cron", minute="*/10", max_instances=1, coalesce=True)
     sched.add_job(job_daily, "cron", hour=3, minute=17, max_instances=1, coalesce=True)
+
+
+def start_background():
+    """Run the scheduler inside the web process (single-service deploys like Railway)."""
+    from apscheduler.schedulers.background import BackgroundScheduler
+
+    sched = BackgroundScheduler(timezone="UTC")
+    add_jobs(sched)
+    sched.start()
+    log.info("scheduler started inside the web process")
+    return sched
+
+
+def main() -> None:
+    init_db()
+    sched = BlockingScheduler(timezone="UTC")
+    add_jobs(sched)
     log.info("worker started")
     sched.start()
 
