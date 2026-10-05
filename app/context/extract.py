@@ -11,7 +11,7 @@ from app.context.people import is_automated, upsert_person
 from app.crypto import decrypt
 from app.db import utcnow
 from app.llm import LLM, untrusted
-from app.models import Commitment, Connection, Event, Person, Project, User
+from app.models import Commitment, Connection, Event, Person, Project, Subscription, User
 from app.util import aware, zone
 
 log = logging.getLogger(__name__)
@@ -30,6 +30,8 @@ Skip pleasantries, newsletters, automated notifications, vague intentions ("let'
 and anything already fulfilled later in the same thread.
 
 Also report which EXISTING open commitments (listed per thread) are now fulfilled by newer messages.
+
+Also list any recurring charge the USER pays that a receipt, renewal or auto-debit notice shows (subscriptions).
 
 Write each description as a short action from the USER's point of view, under 12 words, naming the
 other person, e.g. "Send Ravi the revised GST invoice" or "Anika to share the term sheet".
@@ -59,6 +61,20 @@ SCHEMA = {
             },
         },
         "fulfilled_commitment_ids": {"type": "array", "items": {"type": "integer"}},
+        "subscriptions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "merchant": {"type": "string"},
+                    "amount": {"type": ["number", "null"]},
+                    "currency": {"type": ["string", "null"], "description": "ISO code like INR, USD"},
+                    "cadence": {"type": ["string", "null"], "enum": ["weekly", "monthly", "quarterly", "yearly", None]},
+                },
+                "required": ["merchant"],
+            },
+            "description": "Recurring charges the USER pays (subscription receipts, renewals, auto-debits)",
+        },
         "relationships": {
             "type": "array",
             "items": {
@@ -175,6 +191,19 @@ def _apply(session: Session, user: User, result: dict, allowed_threads: set[str]
         c = session.get(Commitment, cid)
         if c and c.user_id == user.id and c.status == "open" and c.thread_id in allowed_threads:
             c.status = "done"
+
+    for sub in result.get("subscriptions", []) or []:
+        merchant = (sub.get("merchant") or "").strip()[:160]
+        if not merchant:
+            continue
+        row = session.scalar(select(Subscription).where(Subscription.user_id == user.id, Subscription.merchant == merchant))
+        if row is None:
+            row = Subscription(user_id=user.id, merchant=merchant)
+            session.add(row)
+        row.amount = sub.get("amount") if sub.get("amount") is not None else row.amount
+        row.currency = sub.get("currency") or row.currency
+        row.cadence = sub.get("cadence") or row.cadence
+        row.last_seen_at = utcnow()
 
     for rel in result.get("relationships", []) or []:
         p = session.scalar(select(Person).where(Person.user_id == user.id, Person.email == rel.get("email", "").lower()))
