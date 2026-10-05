@@ -11,6 +11,7 @@ envVarGroups:
     envVars:
       - { key: ENV, value: prod }
       - { key: APP_NAME, value: Aide }
+      - { key: RUN_WORKER_IN_WEB, value: "false" }  # the worker service below runs the scheduler
       - { key: MASTER_KEY, generateValue: true }
       - { key: ANTHROPIC_API_KEY, sync: false }
       - { key: WHATSAPP_TOKEN, sync: false }

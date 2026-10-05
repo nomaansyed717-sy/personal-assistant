@@ -4,22 +4,26 @@ A personal assistant you text on WhatsApp. It reads your email and calendar and 
 
 This repo is **Phases 0–1** of the product spec: the working core you can put in front of design partners. Phases 2–3 (web errands, phone calls, phone and desktop control, our own model) have their interfaces in place, and their executors switch on later.
 
-## What it does today
+## What it does
 
 | Capability | How |
 | --- | --- |
-| Text it on WhatsApp | WhatsApp Business Platform (Cloud API) webhook, signed and verified |
-| Onboarding in chat | Consent → one-tap Google connect → first scan of 90 days → "here's what looks open" |
-| Open-loop tracking | Claude reads each email thread and records commitments both ways, closing them when a later email fulfils them |
-| People graph | Who you write to, who writes to you, relationship ("investor", "distributor"), learned importance |
-| Daily brief | Your local time, today's calendar plus the top open loops, each with a drafted reply, nudge or reminder |
-| Drafts in your voice | Style profile learned from your sent mail, refreshed nightly |
-| Numbered approvals | `1, 3`, `all`, `skip 2`, `edit 2: make it warmer`, `done 1`, `snooze 3` |
-| Ask anything | "Did Ravi reply about the invoice?", "Find 30 minutes with Anika next week", via an agent with Gmail and Calendar tools |
-| Scheduling | Finds free slots and creates events with invites, after your approval |
-| Delegation | `always send follow-ups`: known contacts only, 60-second undo window, `STOP` holds them |
-| Your data, your control | `what do you know about Ravi`, `forget Ravi`, `what did you do today`, `delete everything` |
-| Global by default | Time zone guessed from the phone number, replies in your language, works in any country WhatsApp works |
+| **Chat like messaging** | WhatsApp, plus a web app for phone and Mac at `/app` (sign in with a code sent to your WhatsApp) |
+| **Gets to know you** | Long-term memory learned from chat, which you can view and delete (`what do you remember`, `forget …`, or the Memory page) |
+| **Your goals** | Track goals. Each evening it sends up to 3 concrete next steps (`no ideas` turns this off) |
+| **Keeps working after you close the app** | Standing tasks on a schedule: price watches, appointment-slot checks, invoice chasing, habit reminders. It messages you only when something changed |
+| **Secure computer with a browser** | Approved web tasks run in a headless Chromium on the server: compare options, fill forms, book up to the payment step |
+| **Credential vault** | Logins are encrypted, and only the browser can type them in. The model never sees them, and it can't type into password or card fields |
+| **Sentinel** | An independent reviewer checks every outbound action, blocking secrets, internal addresses (SSRF) and anything you didn't ask for |
+| **Works with your apps, builds its own tools** | Gmail and Calendar. 11 built-in skills, including small-business ones (invoice chaser, lead reply, review responder, daily numbers). Teach it new ones with "save this as a skill" |
+| **Saving money, shopping smarter** | Finds subscriptions in your email, runs a subscription audit, watches prices. Purchases end with a checkout link: you pay, never the agent |
+| **Approve critical actions, full audit trail** | Numbered approvals on WhatsApp or approve/skip buttons in the web app. `what did you do today` and `what are you planning` |
+| **Photos, files, voice** | Send a photo, PDF, text file or voice note on WhatsApp (voice needs `OPENAI_API_KEY`) |
+| **Your assistant, your way** | Name it (`call yourself Pumpkin`) and set its personality in Settings |
+| **Open-loop tracking and the daily brief** | Commitments both ways from email, a people graph, and a ranked morning brief with drafts in your voice |
+| **Global** | Time zone from your phone number, replies in your language |
+
+Compared with Meta's Muse, the missing pieces are one-time virtual cards, which need a card-issuing partner such as Stripe Issuing, a native Mac app with local file access, and AI phone calls. Their interfaces are stubbed in `app/execution/`.
 
 ## Safety model
 
@@ -97,6 +101,12 @@ New → Blueprint → select this repo. `render.yaml` creates the Postgres datab
 | `brief at 7` / `timezone Europe/London` | Settings |
 | `what do you know [about X]` / `forget X` | See or delete what it knows |
 | `what did you do today` | Audit log |
+| `what are you planning` | Proposals waiting, sends in progress, standing tasks |
+| `what do you remember` / `forget aisle seats` | See or delete memories |
+| `call yourself Pumpkin` | Rename your assistant |
+| `app` | Link to the web app |
+| `no ideas` / `ideas on` | Evening suggestions off or on |
+| `vault` | Link to save logins (never send passwords in chat) |
 | `delete everything` → `DELETE` | Wipe the account and revoke Google access |
 | Anything else | The agent: questions, drafting, scheduling, tracking new commitments |
 
@@ -119,7 +129,16 @@ app/
   execution/            The execution ladder: api.py live; browser, voice, desktop, phone are Phase 2-3 interfaces
   brief.py              Daily brief
   crypto.py             Per-user encryption
-tests/                  27 tests: full onboarding-to-sent-email flow, safety, injection, data controls
+  standing.py           Standing tasks: schedules, background runs, "message only if useful"
+  ideas.py              Goals and evening ideas
+  skills.py             Built-in and user-created skills
+  sentinel.py           URL and secret rules plus the independent reviewer model
+  research.py           web_search (Tavily or Brave) and read_url with SSRF-safe redirects
+  vault.py              Encrypted logins, decrypted only inside the browser executor
+  media.py              WhatsApp photos, PDFs, text files and voice notes
+  migrate.py            Additive schema migrations on startup
+  web/                  Web app (static/app.html), homepage (static/landing.html), JSON API (api.py)
+tests/                  52 tests, including a real headless-browser run, the web app, Sentinel and the full onboarding flow
 scripts/chat.py         Terminal chat, with a --demo mailbox
 ```
 
