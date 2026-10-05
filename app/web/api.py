@@ -7,6 +7,7 @@ SameSite=Strict cookies).
 """
 import hashlib
 import hmac
+import logging
 import secrets
 import threading
 from collections import defaultdict
@@ -39,6 +40,7 @@ from app.models import (
 )
 from app.util import aware, normalize_phone
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
 COOKIE = "aide_session"
 SESSION_DAYS = 30
@@ -261,7 +263,11 @@ def chat(body: ChatIn, uid: int = Depends(current_user_id)):
         if not demo.chat_allowed(s, user, get_settings().demo_messages):
             return {"reply": "This demo has used all its messages. Tap *Start over* for a fresh one, or sign up to keep going."}
         record_inbound(s, user, body.text, None, "web")
-        reply = route(s, user, body.text, get_llm()) or ""
+        try:
+            reply = route(s, user, body.text, get_llm()) or ""
+        except Exception:  # noqa: BLE001 - keep the message and tell the user plainly instead of a bare 500
+            log.exception("chat failed for user %s", uid)
+            reply = "I couldn't reach my AI model just now, so I can't answer that yet. Please try again in a minute."
         if reply.startswith("\x00deleted:"):
             return {"reply": "Everything is deleted.", "deleted": True}
         if reply:  # web replies are returned directly (and kept in history), not sent to WhatsApp
