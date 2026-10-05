@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0E3B43">
+<title>{{APP_NAME}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0E3B43; --ink-2:#165A66; --fog:#EEF3F2; --paper:#FFFFFF; --text:#15282C; --muted:#5B7177;
+  --line:#D5E0DE; --marigold:#E8A33D; --marigold-soft:#FBEFD9; --leaf:#2F8F6B; --rose:#B4483C;
+  --radius-s:8px; --radius-l:18px;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --fog:#0C1A1D; --paper:#132529; --text:#E3ECEA; --muted:#9AB0B4; --line:#24393E; --marigold-soft:#3A2D16; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:16px/1.5 Figtree,system-ui,sans-serif;background:var(--fog);color:var(--text)}
+h1,h2,h3{font-family:"Bricolage Grotesque",Figtree,sans-serif;font-weight:700;letter-spacing:-.01em;margin:0}
+h2{font-size:1.5rem} h3{font-size:1.05rem}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--marigold);outline-offset:2px}
+.btn{border:0;border-radius:999px;padding:.6rem 1.1rem;background:var(--ink);color:#fff;font-weight:600;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.btn.warn{background:var(--rose)}
+.btn:disabled{opacity:.5;cursor:default}
+input,textarea,select{width:100%;padding:.65rem .8rem;border:1px solid var(--line);border-radius:var(--radius-s);background:var(--paper)}
+label{display:block;font-weight:600;font-size:.9rem;margin:.8rem 0 .3rem}
+.muted{color:var(--muted)} .small{font-size:.85rem}
+[hidden]{display:none!important}
+
+/* sign in */
+#login{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--ink)}
+.login-card{background:var(--paper);border-radius:var(--radius-l);padding:28px;max-width:400px;width:100%}
+.login-card h1{font-size:2rem;margin-bottom:.3rem}
+.login-card .btn{width:100%;margin-top:1rem}
+
+/* shell */
+#shell{display:grid;grid-template-columns:232px 1fr;height:100%}
+nav.rail{background:var(--ink);color:#DDEBE8;padding:20px 12px;display:flex;flex-direction:column;gap:2px}
+.brand{font-family:"Bricolage Grotesque",Figtree,sans-serif;font-size:1.5rem;color:#fff;padding:0 10px 18px}
+nav.rail a{color:inherit;text-decoration:none;padding:.55rem .75rem;border-radius:var(--radius-s);display:flex;justify-content:space-between;align-items:center}
+nav.rail a[aria-current=page]{background:var(--ink-2);color:#fff}
+.badge{background:var(--marigold);color:#2B1C02;border-radius:999px;font-size:.75rem;font-weight:700;padding:0 .5rem;min-width:1.4rem;text-align:center}
+nav.rail .spacer{flex:1}
+main{overflow:auto;padding:28px clamp(16px,4vw,48px)}
+.view{max-width:760px;margin:0 auto}
+.view>header{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:18px}
+.list{display:flex;flex-direction:column;gap:10px}
+.row{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-s);padding:12px 14px;display:flex;gap:12px;justify-content:space-between;align-items:flex-start}
+.row .body{white-space:pre-wrap;overflow-wrap:anywhere;flex:1}
+.empty{border:1px dashed var(--line);border-radius:var(--radius-s);padding:22px;text-align:center;color:var(--muted)}
+form.inline{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-s);padding:4px 16px 16px;margin-bottom:16px}
+
+/* chat */
+#chat-view{display:flex;flex-direction:column;height:calc(100vh - 56px)}
+#thread{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:4px 2px 12px}
+.msg{max-width:78%;padding:.55rem .85rem;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.me{align-self:flex-end;background:var(--ink);color:#fff;border-bottom-right-radius:4px}
+.msg.assistant{align-self:flex-start;background:var(--paper);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg .meta{display:block;font-size:.72rem;opacity:.65;margin-top:2px}
+#composer{display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--line)}
+#composer textarea{resize:none;height:48px;border-radius:24px;padding:.7rem 1rem}
+.suggest{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+.suggest button{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:.35rem .8rem;cursor:pointer;font-size:.9rem}
+
+/* approval slips: the one loud element */
+.slip{display:grid;grid-template-columns:76px 1fr;background:var(--paper);border-radius:var(--radius-s);overflow:hidden;border:1px solid var(--line)}
+.slip .stub{background:var(--marigold-soft);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border-right:2px dashed var(--marigold);font-family:"Bricolage Grotesque",Figtree,sans-serif;color:var(--text)}
+.slip .stub b{font-size:2rem;line-height:1}
+.slip .stub span{font-size:.75rem;color:var(--muted)}
+.slip .main{padding:14px 16px}
+.slip .preview{white-space:pre-wrap;overflow-wrap:anywhere;margin:.2rem 0 .8rem}
+.slip .actions{display:flex;gap:8px;flex-wrap:wrap}
+.tier{font-size:.78rem;font-weight:600;color:var(--muted)}
+.tier.hi{color:var(--rose)}
+
+/* activity */
+.tl{border-left:2px solid var(--line);margin-left:6px;padding-left:16px;display:flex;flex-direction:column;gap:12px}
+.tl .item{position:relative}
+.tl .item::before{content:"";position:absolute;left:-22px;top:.45rem;width:10px;height:10px;border-radius:50%;background:var(--line)}
+.tl .item.blocked::before{background:var(--rose)} .tl .item.executed::before{background:var(--leaf)}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tabs button{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:.35rem .9rem;cursor:pointer}
+.tabs button[aria-selected=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* mobile */
+@media (max-width:760px){
+  #shell{grid-template-columns:1fr;grid-template-rows:1fr auto}
+  nav.rail{order:2;flex-direction:row;overflow-x:auto;padding:6px;gap:0;padding-bottom:max(6px,env(safe-area-inset-bottom))}
+  .brand,nav.rail .spacer{display:none}
+  nav.rail a{flex-direction:column;font-size:.75rem;padding:.4rem .6rem;white-space:nowrap}
+  main{padding:16px}
+  #chat-view{height:calc(100vh - 130px)}
+  .msg{max-width:90%}
+}
+@media (prefers-reduced-motion:no-preference){ .slip{animation:in .25s ease-out} @keyframes in{from{transform:translateY(4px);opacity:0}} }
+</style>
+</head>
+<body>
+
+<section id="login" hidden>
+  <div class="login-card">
+    <h1>{{APP_NAME}}</h1>
+    <p class="muted">Sign in with the WhatsApp number you use to message your assistant. We'll send a code there.</p>
+    <form id="login-start">
+      <label for="phone">WhatsApp number</label>
+      <input id="phone" type="tel" autocomplete="tel" placeholder="+91 98765 43210" required>
+      <button class="btn" type="submit">Send code</button>
+    </form>
+    <form id="login-verify" hidden>
+      <label for="code">6-digit code from WhatsApp</label>
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+      <button class="btn" type="submit">Sign in</button>
+      <p class="small muted">No code? Send "hi" to your assistant on WhatsApp, then try again.</p>
+    </form>
+    <p id="login-msg" class="small" role="status"></p>
+  </div>
+</section>
+
+<div id="shell" hidden>
+  <nav class="rail" aria-label="Sections">
+    <div class="brand" id="brand">{{APP_NAME}}</div>
+    <a href="#chat">Chat</a>
+    <a href="#approvals">Approvals <span class="badge" id="approval-count" hidden></span></a>
+    <a href="#activity">Activity</a>
+    <a href="#goals">Goals</a>
+    <a href="#tasks">Tasks</a>
+    <a href="#memory">Memory</a>
+    <a href="#skills">Skills</a>
+    <a href="#money">Money</a>
+    <a href="#vault">Vault</a>
+    <div class="spacer"></div>
+    <a href="#settings">Settings</a>
+  </nav>
+  <main>
+    <section class="view" id="chat-view" data-view="chat">
+      <div id="thread" aria-live="polite"></div>
+      <div class="suggest" id="suggest">
+        <button>What's open?</button><button>What are you planning?</button>
+        <button>Plan my week around my goals</button><button>Find subscriptions I can cancel</button>
+      </div>
+      <form id="composer">
+        <textarea id="say" placeholder="Tell your assistant what you want done" aria-label="Message"></textarea>
+        <button class="btn" type="submit">Send</button>
+      </form>
+    </section>
+
+    <section class="view" data-view="approvals" hidden>
+      <header><div><h2>Approvals</h2><p class="muted">Nothing sensitive happens until you approve it here or on WhatsApp.</p></div></header>
+      <div class="list" id="approvals"></div>
+    </section>
+
+    <section class="view" data-view="activity" hidden>
+      <header><div><h2>Activity</h2><p class="muted">Everything your assistant has done, and what it's about to do.</p></div></header>
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="planned">Planned</button>
+        <button role="tab" aria-selected="false" data-tab="done">Done</button>
+      </div>
+      <div id="activity"></div>
+    </section>
+
+    <section class="view" data-view="goals" hidden>
+      <header><div><h2>Goals</h2><p class="muted">Your assistant works toward these and suggests next steps each evening.</p></div></header>
+      <form class="inline" id="goal-form">
+        <label for="goal-title">New goal</label>
+        <input id="goal-title" placeholder="Open the Pune dark store by 15 December" required>
+        <label for="goal-date">Target date (optional)</label>
+        <input id="goal-date" type="date">
+        <p><button class="btn" type="submit">Add goal</button></p>
+      </form>
+      <div class="list" id="goals"></div>
+    </section>
+
+    <section class="view" data-view="tasks" hidden>
+      <header><div><h2>Standing tasks</h2><p class="muted">Work that keeps running after you close the app. Ask in chat, or add one here.</p></div></header>
+      <form class="inline" id="task-form">
+        <label for="task-title">Name</label><input id="task-title" placeholder="Watch the price of the Kindle Paperwhite" required>
+        <label for="task-instr">What to do each time</label>
+        <textarea id="task-instr" rows="3" placeholder="Read https://… and tell me if the price is under ₹12,000" required></textarea>
+        <label for="task-sched">How often</label>
+        <select id="task-sched">
+          <option value="every 12h">Every 12 hours</option><option value="daily 09:00">Every day at 9:00</option>
+          <option value="weekly fri 16:00">Fridays at 16:00</option><option value="every 1h">Every hour</option>
+        </select>
+        <p><button class="btn" type="submit">Start task</button></p>
+      </form>
+      <div class="list" id="tasks"></div>
+    </section>
+
+    <section class="view" data-view="memory" hidden>
+      <header><div><h2>Memory</h2><p class="muted">What your assistant knows about you. Delete anything, any time.</p></div></header>
+      <form class="inline" id="memory-form">
+        <label for="memory-text">Tell it something to remember</label>
+        <input id="memory-text" placeholder="I never take meetings before 10am" required>
+        <p><button class="btn" type="submit">Remember</button></p>
+      </form>
+      <div class="list" id="memories"></div>
+    </section>
+
+    <section class="view" data-view="skills" hidden>
+      <header><div><h2>Skills</h2><p class="muted">Procedures your assistant can run. Teach it new ones in chat ("save this as a skill") or here.</p></div></header>
+      <form class="inline" id="skill-form">
+        <label for="skill-name">Name</label><input id="skill-name" placeholder="vendor-reorder" required>
+        <label for="skill-desc">What it's for</label><input id="skill-desc" placeholder="Reorder stock from my usual vendors" required>
+        <label for="skill-instr">Steps</label>
+        <textarea id="skill-instr" rows="4" placeholder="1. Search email for low-stock alerts…" required></textarea>
+        <p><button class="btn" type="submit">Save skill</button></p>
+      </form>
+      <div class="list" id="skills"></div>
+    </section>
+
+    <section class="view" data-view="money" hidden>
+      <header><div><h2>Money</h2><p class="muted">Recurring charges found in your email. Ask "audit my subscriptions" for keep or cancel advice.</p></div></header>
+      <div class="list" id="subs"></div>
+    </section>
+
+    <section class="view" data-view="vault" hidden>
+      <header><div><h2>Vault</h2><p class="muted">Logins the secure browser can use for you. They're encrypted, and the AI never sees them; only the browser types them in.</p></div></header>
+      <form class="inline" id="vault-form" autocomplete="off">
+        <label for="v-label">Name</label><input id="v-label" placeholder="Amazon" required>
+        <label for="v-site">Website</label><input id="v-site" placeholder="amazon.in" required>
+        <label for="v-user">Username or email</label><input id="v-user" autocomplete="off" required>
+        <label for="v-secret">Password</label><input id="v-secret" type="password" autocomplete="new-password" required>
+        <p><button class="btn" type="submit">Save login</button></p>
+      </form>
+      <div class="list" id="vault"></div>
+    </section>
+
+    <section class="view" data-view="settings" hidden>
+      <header><div><h2>Settings</h2></div></header>
+      <form class="inline" id="settings-form">
+        <label for="s-name">Your assistant's name</label><input id="s-name" maxlength="60">
+        <label for="s-persona">Personality</label>
+        <input id="s-persona" maxlength="500" placeholder="Warm, a little witty, replies in Hinglish when I do">
+        <label for="s-tz">Time zone</label><input id="s-tz" placeholder="Asia/Kolkata">
+        <label for="s-brief">Daily brief hour (0–23)</label><input id="s-brief" type="number" min="0" max="23">
+        <label><input type="checkbox" id="s-ideas" style="width:auto"> Send me ideas each evening</label>
+        <label><input type="checkbox" id="s-paused" style="width:auto"> Pause messages from my assistant</label>
+        <label><input type="checkbox" id="s-training" style="width:auto"> Allow my de-identified data to improve the product</label>
+        <p class="small muted">Your conversations are never used for advertising.</p>
+        <p><button class="btn" type="submit">Save settings</button></p>
+      </form>
+      <p><button class="btn ghost" id="logout">Sign out</button></p>
+    </section>
+  </main>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = async (path, opts = {}) => {
+  const r = await fetch('/api' + path, {method: opts.method || 'GET', credentials: 'same-origin',
+    headers: {'Content-Type': 'application/json', 'X-Requested-With': 'aide'},
+    body: opts.body ? JSON.stringify(opts.body) : undefined});
+  if (r.status === 401) { showLogin(); throw new Error('signed out'); }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || 'Something went wrong');
+  return data;
+};
+// Render WhatsApp-style *bold* safely, without innerHTML.
+function rich(el, text) {
+  el.textContent = '';
+  String(text).split(/(\*[^*\n]+\*|\b_[^_\n]+_\b)/g).forEach(part => {
+    if (/^\*[^*\n]+\*$/.test(part)) { const b = document.createElement('strong'); b.textContent = part.slice(1, -1); el.append(b); }
+    else if (/^_[^_\n]+_$/.test(part)) { const i = document.createElement('em'); i.textContent = part.slice(1, -1); el.append(i); }
+    else el.append(document.createTextNode(part));
+  });
+  return el;
+}
+const h = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const when = iso => iso ? new Date(iso).toLocaleString([], {weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
+const empty = (box, text) => { box.textContent = ''; box.append(h('div', 'empty', text)); };
+
+function showLogin() { $('#shell').hidden = true; $('#login').hidden = false; }
+$('#login-start').onsubmit = async e => {
+  e.preventDefault();
+  try { const r = await api('/login/start', {method:'POST', body:{phone: $('#phone').value}});
+    $('#login-msg').textContent = r.note; $('#login-verify').hidden = false; $('#code').focus(); }
+  catch (err) { $('#login-msg').textContent = err.message; }
+};
+$('#login-verify').onsubmit = async e => {
+  e.preventDefault();
+  try { await api('/login/verify', {method:'POST', body:{phone: $('#phone').value, code: $('#code').value}}); boot(); }
+  catch (err) { $('#login-msg').textContent = err.message; }
+};
+
+const loaders = {
+  async chat() {
+    const msgs = await api('/messages'); const t = $('#thread'); t.textContent = '';
+    if (!msgs.length) empty(t, 'Say hello, or try one of the suggestions below.');
+    msgs.forEach(m => addMsg(m.from, m.text, m.at, m.channel));
+    t.scrollTop = t.scrollHeight;
+  },
+  async approvals() {
+    const list = await api('/approvals'); const box = $('#approvals'); box.textContent = '';
+    if (!list.length) return empty(box, "Nothing waiting for you. When your assistant prepares an email, booking or purchase, it shows up here.");
+    list.forEach(a => {
+      const slip = h('article', 'slip');
+      const stub = h('div', 'stub'); stub.append(h('b', null, a.number), h('span', null, 'reply #'));
+      const main = h('div', 'main');
+      main.append(h('div', 'tier' + (a.tier >= 3 ? ' hi' : ''), a.tier >= 3 ? 'New contact or real-world action, check carefully' : 'Ready to send'));
+      main.append(rich(h('div', 'preview'), a.preview));
+      const act = h('div', 'actions');
+      const yes = h('button', 'btn', 'Approve'); const no = h('button', 'btn ghost', 'Skip');
+      yes.onclick = async () => { yes.disabled = no.disabled = true; try { const r = await api(`/approvals/${a.id}/approve`, {method:'POST'}); alertRow(main, r.result); refreshBadge(); } catch (err) { alertRow(main, err.message); } };
+      no.onclick = async () => { await api(`/approvals/${a.id}/reject`, {method:'POST'}); slip.remove(); refreshBadge(); if (!box.children.length) loaders.approvals(); };
+      act.append(yes, no); main.append(act); slip.append(stub, main); box.append(slip);
+    });
+  },
+  async activity(tab = 'planned') {
+    const d = await api('/activity'); const box = $('#activity'); box.textContent = '';
+    document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
+    const items = tab === 'planned' ? d.planned : d.done;
+    if (!items.length) return empty(box, tab === 'planned' ? 'Nothing planned. Ask your assistant to keep an eye on something.' : 'No activity yet this week.');
+    const tl = h('div', 'tl');
+    items.forEach(i => {
+      const it = h('div', 'item ' + (i.action || ''));
+      if (tab === 'planned') { it.append(h('strong', null, i.what), h('div', 'small muted', /^\d{4}-/.test(i.when) ? when(i.when) : i.when)); }
+      else { it.append(h('strong', null, i.label), h('div', null, i.detail), h('div', 'small muted', when(i.at) + (i.actor === 'user' ? ', by you' : ''))); }
+      tl.append(it);
+    });
+    box.append(tl);
+  },
+  async goals() {
+    const list = await api('/goals'); const box = $('#goals'); box.textContent = '';
+    if (!list.length) return empty(box, 'Add a goal and your assistant will plan around it.');
+    list.forEach(g => {
+      const r = h('div', 'row'); const b = h('div', 'body');
+      b.append(h('strong', null, g.title), h('div', 'small muted', [g.status, g.target_date && ('by ' + g.target_date), g.progress_note].filter(Boolean).join(', ')));
+      const btn = h('button', 'btn ghost', g.status === 'done' ? 'Reopen' : 'Mark done');
+      btn.onclick = async () => { await api(`/goals/${g.id}`, {method:'PATCH', body:{status: g.status === 'done' ? 'active' : 'done'}}); loaders.goals(); };
+      r.append(b, btn); box.append(r);
+    });
+  },
+  async tasks() {
+    const list = await api('/tasks'); const box = $('#tasks'); box.textContent = '';
+    if (!list.length) return empty(box, 'No standing tasks yet. Try "watch this price" or "check every morning if a slot opened".');
+    list.forEach(t => {
+      const r = h('div', 'row'); const b = h('div', 'body');
+      b.append(h('strong', null, t.title), h('div', 'small muted', `${t.schedule} · ${t.status}${t.next_run_at ? ' · next ' + when(t.next_run_at) : ''} · ran ${t.runs}×`));
+      if (t.last_result) b.append(rich(h('div', 'small'), 'Last: ' + t.last_result));
+      r.append(b);
+      if (t.status === 'active') { const x = h('button', 'btn ghost', 'Stop'); x.onclick = async () => { await api(`/tasks/${t.id}`, {method:'DELETE'}); loaders.tasks(); }; r.append(x); }
+      box.append(r);
+    });
+  },
+  async memory() {
+    const list = await api('/memories'); const box = $('#memories'); box.textContent = '';
+    if (!list.length) return empty(box, 'Nothing saved yet. Your assistant learns as you chat.');
+    list.forEach(m => { const r = h('div', 'row'); r.append(h('div', 'body', m.text));
+      const x = h('button', 'btn ghost', 'Forget'); x.onclick = async () => { await api(`/memories/${m.id}`, {method:'DELETE'}); r.remove(); }; r.append(x); box.append(r); });
+  },
+  async skills() {
+    const list = await api('/skills'); const box = $('#skills'); box.textContent = '';
+    list.forEach(s => { const r = h('div', 'row'); const b = h('div', 'body');
+      b.append(h('strong', null, s.name), h('div', 'small muted', s.description + (s.builtin ? '' : ' · yours')));
+      const use = h('button', 'btn ghost', 'Run'); use.onclick = () => { location.hash = '#chat'; $('#say').value = 'use the ' + s.name + ' skill'; $('#say').focus(); };
+      r.append(b, use);
+      if (!s.builtin) { const x = h('button', 'btn ghost', 'Delete'); x.onclick = async () => { await api(`/skills/${s.id}`, {method:'DELETE'}); loaders.skills(); }; r.append(x); }
+      box.append(r); });
+  },
+  async money() {
+    const list = await api('/subscriptions'); const box = $('#subs'); box.textContent = '';
+    if (!list.length) return empty(box, 'No recurring charges found yet. They appear as your email is read.');
+    list.forEach(s => { const r = h('div', 'row');
+      r.append(h('div', 'body', `${s.merchant}`), h('div', null, `${s.currency || ''} ${s.amount ?? '?'} ${s.cadence || ''}`)); box.append(r); });
+  },
+  async vault() {
+    const list = await api('/vault'); const box = $('#vault'); box.textContent = '';
+    if (!list.length) return empty(box, 'No saved logins.');
+    list.forEach(v => { const r = h('div', 'row'); r.append(h('div', 'body', `${v.label} (${v.site})`));
+      const x = h('button', 'btn ghost', 'Remove'); x.onclick = async () => { await api(`/vault/${v.id}`, {method:'DELETE'}); r.remove(); }; r.append(x); box.append(r); });
+  },
+  async settings() {
+    const me = await api('/me');
+    $('#s-name').value = me.assistant_name || ''; $('#s-persona').value = me.persona || ''; $('#s-tz').value = me.timezone;
+    $('#s-brief').value = me.brief_hour; $('#s-ideas').checked = me.ideas_enabled; $('#s-paused').checked = me.paused; $('#s-training').checked = me.training_opt_in;
+  },
+};
+function alertRow(el, text) { const p = rich(h('p', 'small'), text); el.append(p); }
+function addMsg(from, text, at, channel) {
+  const t = $('#thread'); t.querySelector('.empty')?.remove();
+  const m = rich(h('div', 'msg ' + (from === 'me' ? 'me' : 'assistant')), text);
+  if (at) m.append(h('span', 'meta', when(at) + (channel === 'whatsapp' ? ' · WhatsApp' : '')));
+  t.append(m); t.scrollTop = t.scrollHeight;
+}
+async function refreshBadge() {
+  try { const n = (await api('/approvals')).length; const b = $('#approval-count'); b.hidden = !n; b.textContent = n; } catch {}
+}
+$('#composer').onsubmit = async e => {
+  e.preventDefault(); const text = $('#say').value.trim(); if (!text) return;
+  $('#say').value = ''; addMsg('me', text); const typing = rich(h('div', 'msg assistant muted'), '…'); $('#thread').append(typing);
+  try { const r = await api('/chat', {method:'POST', body:{text}}); typing.remove(); if (r.reply) addMsg('assistant', r.reply); refreshBadge(); }
+  catch (err) { typing.remove(); addMsg('assistant', err.message); }
+};
+$('#say').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#composer').requestSubmit(); } });
+$('#suggest').onclick = e => { if (e.target.tagName === 'BUTTON') { $('#say').value = e.target.textContent; $('#composer').requestSubmit(); } };
+document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => loaders.activity(b.dataset.tab));
+const submit = (form, fn) => $(form).onsubmit = async e => { e.preventDefault(); try { await fn(); e.target.reset(); } catch (err) { alert(err.message); } };
+submit('#goal-form', async () => { await api('/goals', {method:'POST', body:{title: $('#goal-title').value, target_date: $('#goal-date').value || null}}); loaders.goals(); });
+submit('#task-form', async () => { await api('/tasks', {method:'POST', body:{title: $('#task-title').value, instruction: $('#task-instr').value, schedule: $('#task-sched').value}}); loaders.tasks(); });
+submit('#memory-form', async () => { await api('/memories', {method:'POST', body:{text: $('#memory-text').value}}); loaders.memory(); });
+submit('#skill-form', async () => { await api('/skills', {method:'POST', body:{name: $('#skill-name').value, description: $('#skill-desc').value, instructions: $('#skill-instr').value}}); loaders.skills(); });
+submit('#vault-form', async () => { await api('/vault', {method:'POST', body:{label: $('#v-label').value, site: $('#v-site').value, username: $('#v-user').value, secret: $('#v-secret').value}}); loaders.vault(); });
+$('#settings-form').onsubmit = async e => { e.preventDefault();
+  await api('/settings', {method:'PATCH', body:{assistant_name: $('#s-name').value || null, persona: $('#s-persona').value, timezone: $('#s-tz').value || null,
+    brief_hour: Number($('#s-brief').value), ideas_enabled: $('#s-ideas').checked, paused: $('#s-paused').checked, training_opt_in: $('#s-training').checked}});
+  $('#brand').textContent = $('#s-name').value || '{{APP_NAME}}'; alert('Settings saved'); };
+$('#logout').onclick = async () => { await api('/logout', {method:'POST'}); showLogin(); };
+
+function route() {
+  const v = (location.hash || '#chat').slice(1);
+  document.querySelectorAll('[data-view]').forEach(s => s.hidden = s.dataset.view !== v);
+  document.querySelectorAll('nav.rail a').forEach(a => { if (a.getAttribute('href') !== '#' + v) a.removeAttribute('aria-current'); else a.setAttribute('aria-current', 'page'); });
+  (loaders[v] || loaders.chat)().catch(() => {});
+}
+async function boot() {
+  try { const me = await api('/me'); $('#brand').textContent = me.assistant_name || '{{APP_NAME}}'; document.title = me.assistant_name || '{{APP_NAME}}'; }
+  catch { return; }
+  $('#login').hidden = true; $('#shell').hidden = false; route(); refreshBadge();
+}
+window.addEventListener('hashchange', route);
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0E3B43">
+<title>{{APP_NAME}}: your personal AI agent on WhatsApp</title>
+<meta name="description" content="A personal AI agent you text on WhatsApp. It learns your goals, closes the loops you drop, and gets things done with your approval.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0E3B43;--ink-2:#165A66;--fog:#EEF3F2;--paper:#fff;--text:#15282C;--muted:#5B7177;--line:#D5E0DE;--marigold:#E8A33D;--marigold-soft:#FBEFD9;--wa:#DCF8C6}
+*{box-sizing:border-box}
+body{margin:0;font:17px/1.55 Figtree,system-ui,sans-serif;color:var(--text);background:var(--paper)}
+h1,h2,h3{font-family:"Bricolage Grotesque",sans-serif;letter-spacing:-.02em;margin:0}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--marigold);outline-offset:3px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+header.top{display:flex;justify-content:space-between;align-items:center;padding:18px 0}
+.logo{font-family:"Bricolage Grotesque",Figtree,sans-serif;font-weight:800;font-size:1.4rem}
+.btn{display:inline-block;border-radius:999px;padding:.75rem 1.3rem;font-weight:600;text-decoration:none}
+.btn.primary{background:var(--ink);color:#fff}
+.btn.quiet{border:1px solid var(--line)}
+.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;padding:36px 0 72px}
+.hero h1{font-size:clamp(2.4rem,5.4vw,4.2rem);line-height:1.02;font-weight:800}
+.hero p.lede{font-size:1.2rem;color:var(--muted);max-width:34ch;margin:18px 0 26px}
+.ctas{display:flex;gap:10px;flex-wrap:wrap}
+/* the phone: a real-looking brief, the product's most characteristic moment */
+.phone{background:#0B2328;border-radius:34px;padding:12px;max-width:380px;justify-self:center;width:100%;box-shadow:0 30px 60px -30px rgba(14,59,67,.55)}
+.screen{background:#E7DED4;border-radius:24px;padding:14px 12px 16px;display:flex;flex-direction:column;gap:8px;min-height:520px}
+.chat-head{display:flex;align-items:center;gap:10px;background:var(--ink);color:#fff;margin:-14px -12px 6px;padding:12px 14px;border-radius:24px 24px 0 0}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--marigold);display:grid;place-items:center;font-weight:700;color:#2B1C02}
+.b{max-width:86%;padding:8px 10px;border-radius:10px;font-size:.88rem;line-height:1.4;white-space:pre-line;background:#fff}
+.b.me{align-self:flex-end;background:var(--wa)}
+.b small{display:block;text-align:right;color:var(--muted);font-size:.68rem}
+.slip{border-left:3px solid var(--marigold);padding-left:8px;margin:4px 0}
+section.band{padding:72px 0;border-top:1px solid var(--line)}
+section.band h2{font-size:clamp(1.8rem,3.4vw,2.6rem);max-width:22ch}
+.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:34px}
+.cols h3{font-size:1.15rem;margin-bottom:6px}
+.cols p{margin:0;color:var(--muted)}
+.trust{background:var(--ink);color:#E6F0EE}
+.trust h2{color:#fff}
+.trust .cols p{color:#B9D0CC}
+.steps{counter-reset:s;display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:34px}
+.steps li{list-style:none;counter-increment:s}
+.steps li::before{content:counter(s);font-family:"Bricolage Grotesque";font-weight:800;font-size:2.4rem;color:var(--marigold);display:block}
+footer{padding:36px 0;color:var(--muted);font-size:.9rem;border-top:1px solid var(--line)}
+@media (max-width:860px){.hero{grid-template-columns:1fr}.cols,.steps{grid-template-columns:1fr}.screen{min-height:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">{{APP_NAME}}</div>
+    <a class="btn quiet" href="/app">Sign in</a>
+  </header>
+
+  <section class="hero">
+    <div>
+      <h1>Your chief of staff lives in your WhatsApp.</h1>
+      <p class="lede">It learns your goals, catches the promises you'd forget, and gets things done. It asks before anything important happens.</p>
+      <div class="ctas">
+        {{WA_CTA}}
+        <a class="btn quiet" href="/app">Open the web app</a>
+      </div>
+    </div>
+    <div class="phone" aria-label="Example conversation">
+      <div class="screen">
+        <div class="chat-head"><div class="avatar">A</div><div><strong>{{APP_NAME}}</strong><br><span style="font-size:.75rem;opacity:.8">online</span></div></div>
+        <div class="b">Good morning, Sam. Two meetings today, first at 10:30 with Anika.
+
+Three things need you:
+<div class="slip"><b>1.</b> You told Ravi you'd send the GST invoice on Tuesday. Reply drafted.</div><div class="slip"><b>2.</b> Priya still owes you the print quote. Nudge ready.</div><div class="slip"><b>3.</b> Your gym and two streaming apps renew this week, ₹2,140 a month in total.</div>Reply with numbers to go ahead.<small>8:00</small></div>
+        <div class="b me">1, 2. And cancel the one I don't use<small>8:03</small></div>
+        <div class="b">Sent both. You haven't opened one of the streaming apps since July, so I've lined up that cancellation for your yes.<small>8:03</small></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="band">
+  <div class="wrap">
+    <h2>It takes the busywork off your plate, all day.</h2>
+    <div class="cols">
+      <div><h3>Gets to know you</h3><p>Your priorities, people, routines and goals. You can see everything it remembers and delete any of it.</p></div>
+      <div><h3>Keeps working after you close the chat</h3><p>It watches prices, checks for appointment slots, chases unpaid invoices and follows up, on a schedule you set.</p></div>
+      <div><h3>Suggests the next step</h3><p>Each evening it suggests a few concrete moves toward your goals, ready to do with one reply.</p></div>
+      <div><h3>Uses a browser like you would</h3><p>Its own secure computer compares options, fills forms and books things, right up to the payment step.</p></div>
+      <div><h3>Works with your apps</h3><p>Gmail and Google Calendar today. Teach it your own routines as skills it can run any time.</p></div>
+      <div><h3>Saves you money</h3><p>It finds subscriptions in your inbox, flags the ones you don't use, and watches prices before you buy.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band trust">
+  <div class="wrap">
+    <h2>You stay in control.</h2>
+    <div class="cols">
+      <div><h3>Approve what matters</h3><p>Emails to new people, bookings and purchases wait for your yes. Reply STOP to hold anything in progress.</p></div>
+      <div><h3>A full record</h3><p>See everything your assistant has done, and everything it plans to do, in chat or in the web app.</p></div>
+      <div><h3>Your logins stay locked</h3><p>Saved logins are encrypted and typed in by the browser. The AI never sees them, and you always check out yourself.</p></div>
+      <div><h3>A second check</h3><p>An independent reviewer screens every outbound action for anything you didn't ask for.</p></div>
+      <div><h3>Private by default</h3><p>Your data is encrypted with its own key, never used for ads, and deleted when you say "delete everything".</p></div>
+      <div><h3>Global from day one</h3><p>It works in your language and your time zone, wherever WhatsApp works.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <h2>Up and running in three minutes.</h2>
+    <ol class="steps">
+      <li><h3>Say hi on WhatsApp</h3><p class="muted">Save the number and send any message.</p></li>
+      <li><h3>Connect Google</h3><p class="muted">One tap gives it your email and calendar. It sends only what you approve.</p></li>
+      <li><h3>Get your first brief</h3><p class="muted">Within minutes it shows you what you've dropped, with replies ready to go.</p></li>
+    </ol>
+  </div>
+</section>
+
+<footer><div class="wrap">{{APP_NAME}} · <a href="/privacy">Privacy and terms</a> · <a href="/app">Web app</a></div></footer>
+</body>
+</html>
