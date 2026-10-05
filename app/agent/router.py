@@ -14,6 +14,8 @@ from app import brief
 from app.agent import account, actions, agent, drafts, onboarding
 from app.audit import audit
 from app.channels import InboundMessage, get_channel
+from app.config import get_settings
+from app.context import memory
 from app.context.rank import snooze
 from app.llm import LLM
 from app.messenger import flush_queue, record_inbound, send
@@ -33,6 +35,10 @@ KNOW = re.compile(r"^what do you know(?: about (.+?))?\??$", re.I)
 TZ = re.compile(r"^(?:timezone|time zone)\s+([A-Za-z_]+/[A-Za-z_/]+)$", re.I)
 BRIEF_AT = re.compile(r"^brief at\s+(\d{1,2})(?::00)?\s*(am|pm)?$", re.I)
 DELEGATE = re.compile(r"^(?:always|automatically)\s+(?:send|handle)\s+(?:my\s+)?(follow[- ]?ups?|emails?|replies|nudges)\b", re.I)
+NAME_ME = re.compile(r"^(?:call yourself|your name is|i(?:'ll| will) call you|be called)\s+([\w .'-]{1,40})$", re.I)
+REMEMBER_Q = re.compile(r"^what do you remember(?: about me)?\??$", re.I)
+PLANNING = re.compile(r"^(?:what are you (?:planning|working on)|what'?s planned|plans|planned|what will you do)\??$", re.I)
+APP_LINK = re.compile(r"^(?:app|web app|open app|login|log in|sign in|dashboard|app link)$", re.I)
 UNDELEGATE = re.compile(r"^(?:stop auto(?:matic)?(?:ally)?(?: sending)?|ask me first(?: again)?|no more auto(?:matic)? (?:sending|follow[- ]?ups))$", re.I)
 
 
@@ -46,7 +52,8 @@ def _numbers(s: str) -> list[int]:
 def get_or_create_user(session: Session, msg: InboundMessage) -> User:
     user = session.scalar(select(User).where(User.phone == msg.phone))
     if user is None:
-        user = User(phone=msg.phone, name=msg.profile_name, timezone=guess_timezone(msg.phone))
+        user = User(phone=msg.phone, name=msg.profile_name, timezone=guess_timezone(msg.phone),
+                    assistant_name=get_settings().app_name)
         session.add(user)
         session.flush()
         audit(session, user.id, "signup", "", actor="user")
@@ -60,17 +67,30 @@ def handle_inbound(session: Session, msg: InboundMessage, llm: LLM, channel_name
     if not record_inbound(session, user, msg.text, msg.external_id, channel_name):
         return  # duplicate delivery
     flush_queue(session, user)
-    if msg.kind == "unsupported" or not msg.text:
-        send(session, user, "I can only read text for now. Voice notes and images are coming.")
+    text, attachments = msg.text, []
+    if msg.media_id and user.onboarding_state == "active":
+        from app.media import MediaError, prepare
+
+        try:
+            text, attachments = prepare(msg)
+        except MediaError as exc:
+            send(session, user, str(exc))
+            return
+        except Exception:  # noqa: BLE001
+            log.exception("media download failed")
+            send(session, user, "I couldn't open that file. Could you send it again?")
+            return
+    elif msg.kind == "unsupported" or not msg.text:
+        send(session, user, "I can read text, photos, PDFs and voice notes. That one I can't open yet.")
         return
-    reply = route(session, user, msg.text, llm)
+    reply = route(session, user, text, llm, attachments)
     if reply and reply.startswith(DELETED):
         goodbye(get_channel(), reply.removeprefix(DELETED))
     elif reply:
         send(session, user, reply)
 
 
-def route(session: Session, user: User, text: str, llm: LLM) -> str | None:
+def route(session: Session, user: User, text: str, llm: LLM, attachments: list[dict] | None = None) -> str | None:
     t = text.strip()
     low = t.lower().rstrip(".!")
 
@@ -128,6 +148,29 @@ def route(session: Session, user: User, text: str, llm: LLM) -> str | None:
             return "Give me an hour between 0 and 23, like *brief at 7*."
         user.brief_hour = hour
         return f"Done. Your brief comes at {hour:02d}:00 {user.timezone} time."
+    if m := NAME_ME.match(t):
+        user.assistant_name = m.group(1).strip().title()[:60]
+        audit(session, user.id, "renamed_assistant", user.assistant_name, actor="user")
+        return f"Love it. I'm {user.assistant_name} from now on."
+    if REMEMBER_Q.match(low):
+        mems = memory.all_memories(session, user)
+        if not mems:
+            return "I haven't saved anything about you yet. Tell me what matters and I'll remember it."
+        lines = [f"• {t}" for _, t in mems[:30]]
+        return "Here's what I remember:\n" + "\n".join(lines) + "\n\nSay *forget <something>* to remove any of it."
+    if PLANNING.match(low):
+        return account.planned(session, user)
+    if APP_LINK.match(low):
+        return f"Open the web app here and sign in with your number: {get_settings().base_url.rstrip('/')}/app"
+    if low in ("no ideas", "stop ideas", "ideas off"):
+        user.ideas_enabled = False
+        return "Okay, no more daily ideas. Say *ideas on* to bring them back."
+    if low in ("ideas on", "send ideas"):
+        user.ideas_enabled = True
+        return "Done. I'll send a few ideas each evening when I have good ones."
+    if low in ("add a login", "save a login", "save password", "vault"):
+        return ("Never send passwords in chat. Add logins in your vault, where only the secure browser can use them "
+                f"(I never see them): {get_settings().base_url.rstrip('/')}/app#vault")
     if DELEGATE.match(low):
         return actions.delegate(session, user, "send_email")
     if UNDELEGATE.match(low):
@@ -144,7 +187,7 @@ def route(session: Session, user: User, text: str, llm: LLM) -> str | None:
     if m := SNOOZE.match(low):
         return _close_by_number(session, user, int(m.group(1)), "snooze", int(m.group(2) or 3))
 
-    return agent.respond(session, user, t, llm)
+    return agent.respond(session, user, t, llm, attachments)
 
 
 def _approval_commands(session, user, t, low, proposals, llm) -> str | None:

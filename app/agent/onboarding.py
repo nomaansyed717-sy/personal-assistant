@@ -23,7 +23,7 @@ def welcome(user: User) -> str:
     s = get_settings()
     first = (user.name or "").split(" ")[0]
     return (
-        f"Hi{' ' + first if first else ''}, I'm {s.app_name}, your chief of staff on WhatsApp.\n\n"
+        f"Hi{' ' + first if first else ''}, I'm {user.assistant_name or s.app_name}, your personal AI agent on WhatsApp.\n\n"
         "I read your email and calendar, keep track of what you've promised and what you're owed, "
         "and each morning I text you the few things that need you, with replies ready to send.\n\n"
         "How I handle your data: everything is encrypted, I never send anything to someone new without your yes, "
@@ -94,6 +94,8 @@ def after_connect(session: Session, user: User, llm: LLM) -> None:
         user,
         "Three quick questions so I get your priorities right: who matters most to you right now, "
         "what are you working on this month, and is there anything I must never do? "
-        f"I'll send your brief every day at {user.brief_hour:02d}:00 (say *brief at 7* to change it).",
+        f"I'll send your brief every day at {user.brief_hour:02d}:00 (say *brief at 7* to change it). "
+        "You can also give me a name (*call yourself Pumpkin*), set goals, ask me to keep an eye on things for you, "
+        f"or use the web app: {get_settings().base_url.rstrip('/')}/app",
     )
     brief.mark_sent(user)

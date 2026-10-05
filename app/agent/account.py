@@ -22,6 +22,14 @@ LABELS = {
     "delegated": "You delegated",
     "remembered": "Saved",
     "sync_failed": "Sync problem",
+    "blocked": "Sentinel blocked",
+    "task_created": "New standing task",
+    "task_ran": "Ran task",
+    "task_cancelled": "Stopped task",
+    "goal_added": "New goal",
+    "skill_created": "New skill",
+    "vault_added": "Saved login",
+    "forgot": "Forgot",
 }
 
 
@@ -71,6 +79,9 @@ def what_i_know(session: Session, user: User, about: str | None = None) -> str:
 
 def forget(session: Session, user: User, target: str) -> str:
     target = target.strip()
+    from app.context import memory as mem
+
+    n_mem = mem.forget(session, user, target)
     people = find_person(session, user.id, target)
     if people:
         p = people[0]
@@ -85,8 +96,37 @@ def forget(session: Session, user: User, target: str) -> str:
         for p in hit:
             session.delete(p)
         audit(session, user.id, "forgot", "a preference", actor="user")
-        return f"Forgotten {len(hit)} saved preference(s)."
+        return f"Forgotten {len(hit)} saved preference(s)" + (f" and {n_mem} memories." if n_mem else ".")
+    if n_mem:
+        audit(session, user.id, "forgot", f"{n_mem} memories", actor="user")
+        return f"Forgotten {n_mem} memor{'y' if n_mem == 1 else 'ies'}."
     return f"I couldn't find anything matching '{target}'."
+
+
+def planned(session: Session, user: User) -> str:
+    """What the assistant is about to do: proposals waiting, sends in the undo window, and standing tasks."""
+    from app.models import Action, StandingTask
+
+    tz = zone(user.timezone)
+    waiting = session.scalars(select(Action).where(Action.user_id == user.id, Action.status == "proposed")
+                              .order_by(Action.number)).all()
+    sched = session.scalars(select(Action).where(Action.user_id == user.id, Action.status == "scheduled")).all()
+    tasks = session.scalars(select(StandingTask).where(StandingTask.user_id == user.id, StandingTask.status == "active")
+                            .order_by(StandingTask.next_run_at)).all()
+    lines = []
+    if sched:
+        lines.append("*Running now or about to send*")
+        lines += [f"• {a.preview.splitlines()[0][:120]}" for a in sched]
+    if waiting:
+        lines.append("*Waiting for your yes*")
+        lines += [f"• #{a.number} {a.preview.splitlines()[0][:120]}" for a in waiting]
+    if tasks:
+        lines.append("*Standing tasks*")
+        lines += [f"• {t.title}, next {aware(t.next_run_at).astimezone(tz):%a %H:%M} ({t.schedule})"
+                  for t in tasks if t.next_run_at]
+    if not lines:
+        return "Nothing planned right now. Ask me to keep an eye on something and I'll set up a standing task."
+    return "\n".join(lines) + "\n\nFull history: say *what did you do today*."
 
 
 def delete_everything(session: Session, user: User) -> None:

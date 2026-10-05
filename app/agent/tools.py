@@ -8,11 +8,13 @@ so text inside an email can never talk the agent into it.
 import json
 from datetime import datetime, timedelta
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.agent import actions
 from app.agent.drafts import loop_line
+from app.agent.tools_extra import EXTRA_TOOLS, ExtraTools
 from app.audit import audit
 from app.context.people import find_person, upsert_person
 from app.context.rank import snooze, top_open
@@ -130,12 +132,17 @@ TOOLS = [
     },
     {
         "name": "propose_errand",
-        "description": "Prepare a real-world errand: a phone call to a business, or a task on a website (booking a cab, a technician, etc).",
+        "description": (
+            "Prepare a real-world errand for approval. browser_task = the secure computer's browser does a task on a "
+            "website (check availability, compare options, fill a form, book something up to the payment step); give "
+            "start_url when known. phone_call = call a business (not switched on yet)."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "kind": {"type": "string", "enum": ["phone_call", "browser_task"]},
                 "goal": {"type": "string"},
+                "start_url": {"type": ["string", "null"]},
                 "constraints": {"type": "string"},
             },
             "required": ["kind", "goal"],
@@ -161,16 +168,21 @@ TOOLS = [
     },
     {
         "name": "update_settings",
-        "description": "Change the user's name, time zone (IANA, e.g. Europe/London) or daily brief hour (0-23).",
+        "description": (
+            "Change the user's name, time zone (IANA), daily brief hour (0-23), your own name (assistant_name, when the "
+            "user names you) or your personality (persona, e.g. 'warm and witty, uses Hinglish')."
+        ),
         "input_schema": {
             "type": "object",
-            "properties": {"name": {"type": "string"}, "timezone": {"type": "string"}, "brief_hour": {"type": "integer"}},
+            "properties": {"name": {"type": "string"}, "timezone": {"type": "string"}, "brief_hour": {"type": "integer"},
+                           "assistant_name": {"type": "string"}, "persona": {"type": "string"}},
         },
     },
 ]
+TOOLS += EXTRA_TOOLS
 
 
-class ToolContext:
+class ToolContext(ExtraTools):
     def __init__(self, session: Session, user: User):
         self.session = session
         self.user = user
@@ -196,6 +208,8 @@ class ToolContext:
             return fn(**args)
         except GoogleError as exc:
             return f"error: {exc}"
+        except httpx.HTTPError as exc:
+            return f"error: network problem ({str(exc)[:120]})"
         except (ValueError, KeyError, TypeError) as exc:
             return f"error: bad input ({exc})"
 
@@ -336,7 +350,8 @@ class ToolContext:
         p.importance = importance(p)
         return f"marked {p.email} as important"
 
-    def t_update_settings(self, name: str | None = None, timezone: str | None = None, brief_hour: int | None = None) -> str:
+    def t_update_settings(self, name: str | None = None, timezone: str | None = None, brief_hour: int | None = None,
+                          assistant_name: str | None = None, persona: str | None = None) -> str:
         from zoneinfo import ZoneInfo
 
         changed = []
@@ -350,6 +365,12 @@ class ToolContext:
         if brief_hour is not None and 0 <= brief_hour <= 23:
             self.user.brief_hour = brief_hour
             changed.append("brief time")
+        if assistant_name:
+            self.user.assistant_name = assistant_name.strip()[:60]
+            changed.append("my name")
+        if persona:
+            self.user.persona = persona.strip()[:500]
+            changed.append("my personality")
         return "updated " + ", ".join(changed) if changed else "nothing changed"
 
     # ---- proposals (things that leave the system wait for approval)
@@ -382,13 +403,14 @@ class ToolContext:
         self.proposed.append(a)
         return self._proposal_result(a)
 
-    def t_propose_errand(self, kind, goal, constraints="") -> str:
-        payload = {"goal": goal, "constraints": constraints}
-        label = "Call" if kind == "phone_call" else "Web task"
-        preview = f"{label}: {goal}" + (f" ({constraints})" if constraints else "")
+    def t_propose_errand(self, kind, goal, constraints="", start_url=None) -> str:
+        payload = {"goal": goal, "constraints": constraints, "start_url": start_url}
+        label = "Call" if kind == "phone_call" else "Web task on the secure computer"
+        preview = f"{label}: {goal}" + (f" ({constraints})" if constraints else "") + (f"\nStarting at {start_url}" if start_url else "")
         a = actions.propose(self.session, self.user, kind, payload, preview, "chat")
         self.proposed.append(a)
-        return self._proposal_result(a) + " NOTE: this capability is not switched on yet; tell the user honestly."
+        note = " NOTE: phone calls are not switched on yet; tell the user honestly." if kind == "phone_call" else ""
+        return self._proposal_result(a) + note
 
     @staticmethod
     def _proposal_result(a) -> str:

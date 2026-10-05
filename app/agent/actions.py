@@ -34,12 +34,16 @@ KIND_TIERS = {
     "desktop_task": 3,
     "phone_task": 3,
     "payment": 4,
+    "purchase": 4,
 }
+# Kinds that take minutes: approval queues them for the worker, which messages the result.
+LONG_RUNNING = {"browser_task"}
 MAX_DELEGABLE_TIER = 2
 PROPOSAL_TTL = timedelta(days=3)
 
 
 LABELS = {
+    "purchase": "purchase",
     "note": "reminder",
     "send_email": "email",
     "create_event": "calendar event",
@@ -132,6 +136,11 @@ def by_number(session: Session, user_id: int, number: int) -> Action | None:
 def approve(session: Session, user: User, action: Action) -> str:
     """The user said yes: run it now (no undo delay for explicit approvals)."""
     audit(session, user.id, "approved", f"#{action.number} {_label(action.kind)}", actor="user")
+    if action.kind in LONG_RUNNING:
+        action.status = "scheduled"
+        action.execute_after = utcnow()
+        action.number = None
+        return f"On it: {_first_line(action.preview)}. I'll message you when it's done"
     return execute(session, user, action)
 
 
@@ -145,7 +154,15 @@ def reject(session: Session, user: User, action: Action) -> None:
     _learn(session, action)
 
 
-def execute(session: Session, user: User, action: Action) -> str:
+def execute(session: Session, user: User, action: Action, llm=None) -> str:
+    from app.sentinel import review_action
+
+    verdict = review_action(session, user, action, llm if llm is not None else _sentinel_llm())
+    if not verdict.allowed:
+        action.status = "blocked"
+        action.result = verdict.reason
+        audit(session, user.id, "blocked", f"{_label(action.kind)}: Sentinel: {verdict.reason}", actor="system")
+        return f"Sentinel stopped this {_label(action.kind)}: {verdict.reason}. Nothing was sent"
     try:
         result = get_executor(action.kind)(session, user, action)
     except NotAvailable as exc:
@@ -191,14 +208,29 @@ def cancel_scheduled(session: Session, user: User) -> int:
     return len(rows)
 
 
+def _sentinel_llm():
+    from app import llm as llm_mod
+    from app.config import get_settings
+
+    if llm_mod._llm is not None:
+        return llm_mod._llm
+    if not get_settings().anthropic_api_key:
+        return None  # dev without a key: the deterministic rules still apply
+    return llm_mod.get_llm()
+
+
 def run_due(session: Session) -> int:
     """Worker: execute scheduled actions whose undo window has passed, expire stale proposals."""
+    from app.messenger import send
+
     now = utcnow()
     due = session.scalars(select(Action).where(Action.status == "scheduled", Action.execute_after <= now)).all()
     for a in due:
         user = session.get(User, a.user_id)
         if user and not user.paused:
-            execute(session, user, a)
+            result = execute(session, user, a)
+            if a.kind in LONG_RUNNING or a.status != "executed":
+                send(session, user, result)
     stale = session.scalars(select(Action).where(Action.status == "proposed", Action.created_at < now - PROPOSAL_TTL)).all()
     for a in stale:
         a.status = "expired"
