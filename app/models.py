@@ -43,6 +43,11 @@ class User(Base):
     paused: Mapped[bool] = mapped_column(Boolean, default=False)
     voice_profile_enc: Mapped[str | None] = mapped_column(Text)  # how the user writes, learned from sent mail
     pending_confirmation: Mapped[str | None] = mapped_column(String(64))  # e.g. "delete_everything"
+    assistant_name: Mapped[str] = mapped_column(String(60), default="Aide")  # users name their assistant
+    persona: Mapped[str | None] = mapped_column(Text)  # tone/personality the user asked for
+    ideas_enabled: Mapped[bool] = mapped_column(Boolean, default=True)  # daily proactive suggestions
+    last_ideas_on: Mapped[date | None] = mapped_column(Date)
+    training_opt_in: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
 
     connections: Mapped[list["Connection"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -245,3 +250,126 @@ class OAuthState(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
     used: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class Memory(Base):
+    """Durable facts the assistant has learned about the user. Visible and deletable by the user."""
+
+    __tablename__ = "memories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    text_enc: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(16), default="chat")  # chat | stated | email
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+
+class Goal(Base):
+    __tablename__ = "goals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    detail: Mapped[str | None] = mapped_column(Text)
+    target_date: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(16), default="active")  # active | paused | done
+    progress_note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+
+class Skill(Base):
+    """A reusable procedure the user taught the assistant ("it builds its own tools")."""
+
+    __tablename__ = "skills"
+    __table_args__ = (UniqueConstraint("user_id", "name"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    description: Mapped[str] = mapped_column(String(255))
+    instructions: Mapped[str] = mapped_column(Text)
+    uses: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+
+class StandingTask(Base):
+    """Work that keeps running after the user closes the chat: watches, routines, follow-through."""
+
+    __tablename__ = "standing_tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    instruction: Mapped[str] = mapped_column(Text)
+    schedule: Mapped[str] = mapped_column(String(64))  # "daily 09:00" | "weekly mon 09:00" | "every 6h" | "once 2026-10-09T10:00"
+    goal_id: Mapped[int | None] = mapped_column(ForeignKey("goals.id", ondelete="SET NULL"))
+    status: Mapped[str] = mapped_column(String(16), default="active", index=True)  # active | paused | done
+    next_run_at: Mapped[datetime | None] = mapped_column(TS, index=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(TS)
+    last_result: Mapped[str | None] = mapped_column(Text)
+    runs: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+
+class VaultItem(Base):
+    """Logins the browser agent can use. The model only ever sees the label and site, never the values."""
+
+    __tablename__ = "vault_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    label: Mapped[str] = mapped_column(String(120))
+    site: Mapped[str] = mapped_column(String(255))  # domain, e.g. amazon.in
+    username_enc: Mapped[str] = mapped_column(Text)
+    secret_enc: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+
+class BrowserState(Base):
+    """Encrypted cookies/local storage of the user's browser sessions on the secure computer."""
+
+    __tablename__ = "browser_states"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    state_enc: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+
+class Subscription(Base):
+    """Recurring charges found in email, for the money-saving review."""
+
+    __tablename__ = "subscriptions"
+    __table_args__ = (UniqueConstraint("user_id", "merchant"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    merchant: Mapped[str] = mapped_column(String(160))
+    amount: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str | None] = mapped_column(String(8))
+    cadence: Mapped[str | None] = mapped_column(String(16))  # monthly | yearly | weekly
+    last_seen_at: Mapped[datetime | None] = mapped_column(TS)
+    status: Mapped[str] = mapped_column(String(16), default="active")  # active | cancelled | keep
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+
+class LoginCode(Base):
+    """One-time codes sent over WhatsApp to sign in to the web app."""
+
+    __tablename__ = "login_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    code_hash: Mapped[str] = mapped_column(String(128))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    expires_at: Mapped[datetime] = mapped_column(TS)
+
+
+class WebSession(Base):
+    __tablename__ = "web_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    expires_at: Mapped[datetime] = mapped_column(TS)
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)

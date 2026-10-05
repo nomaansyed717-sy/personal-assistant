@@ -35,6 +35,24 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
 
+    # Web research (either one enables web_search; read_url always works)
+    tavily_api_key: str = ""
+    brave_api_key: str = ""
+    # Voice notes: transcription via OpenAI's API (optional)
+    openai_api_key: str = ""
+    transcribe_model: str = "gpt-4o-mini-transcribe"
+
+    # Secure computer (browser agent)
+    browser_enabled: bool = True
+    browser_max_steps: int = 25
+    allow_private_urls: bool = False  # tests only; Sentinel blocks internal addresses otherwise
+
+    # Run the scheduler inside the web process (one Railway service). Set false if you run a worker.
+    run_worker_in_web: bool = True
+
+    # Public WhatsApp number of the assistant, for wa.me links on the homepage (digits only)
+    public_whatsapp_number: str = ""
+
     # Behaviour
     default_brief_hour: int = 8  # local time
     undo_window_seconds: int = 60

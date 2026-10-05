@@ -64,5 +64,7 @@ def session_scope() -> Session:
 
 def init_db():
     from app import models  # noqa: F401  (registers tables)
+    from app.migrate import add_missing_columns
 
     Base.metadata.create_all(get_engine())
+    add_missing_columns(get_engine())

@@ -5,6 +5,7 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from html import escape
+from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
@@ -21,6 +22,7 @@ from app.integrations import google
 from app.llm import get_llm
 from app.models import OAuthState, User
 from app.util import aware, normalize_phone
+from app.web import api as web_api
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("app")
@@ -33,10 +35,43 @@ async def lifespan(_app: FastAPI):
     if missing:
         log.warning("still to configure: %s", ", ".join(missing))
     init_db()
+    sched = None
+    if get_settings().run_worker_in_web and not _app.state.__dict__.get("testing"):
+        from app.worker.run import start_background
+
+        sched = start_background()
     yield
+    if sched:
+        sched.shutdown(wait=False)
 
 
 app = FastAPI(title="Assistant", docs_url=None, redoc_url=None, lifespan=lifespan)
+app.include_router(web_api.router)
+STATIC = Path(__file__).parent / "web" / "static"
+
+
+def _static_page(name: str) -> str:
+    s = get_settings()
+    html = (STATIC / name).read_text(encoding="utf-8").replace("{{APP_NAME}}", escape(s.app_name))
+    if s.public_whatsapp_number:
+        num = "".join(ch for ch in s.public_whatsapp_number if ch.isdigit())
+        cta = f'<a class="btn primary" href="https://wa.me/{num}?text=hi">Message {escape(s.app_name)} on WhatsApp</a>'
+    else:
+        cta = '<a class="btn primary" href="/app">Get started</a>'
+    return html.replace("{{WA_CTA}}", cta)
+
+
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return _static_page("landing.html")
+
+
+@app.get("/app", response_class=HTMLResponse)
+def web_app():
+    return HTMLResponse(_static_page("app.html"), headers={
+        "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
+        "X-Frame-Options": "DENY", "Referrer-Policy": "same-origin"})
 
 # One message at a time per user, so approvals and replies never interleave.
 _user_locks: dict[str, threading.Lock] = defaultdict(threading.Lock)
@@ -146,8 +181,11 @@ def privacy():
 <h2>What we keep</h2><p>Raw email and calendar text is encrypted with a key unique to you and deleted after
 {s.raw_retention_days} days. We keep structured notes: people you deal with, open commitments, and preferences you state.
 You can see them any time ("what do you know") and delete them ("forget &lt;name&gt;", "delete everything").</p>
-<h2>What we never do</h2><p>Sell your data. Send anything to someone new without your explicit yes. Handle passwords,
-card numbers or payments. Use your data to train models unless you opt in.</p>
+<h2>What we never do</h2><p>Sell your data or use it for advertising. Send anything to someone new without your explicit
+yes. See your saved logins (only the secure browser types them in) or handle card numbers; you always check out yourself.
+Use your data to improve the product unless you opt in under Settings.</p>
+<h2>The secure computer</h2><p>Web tasks you approve run in an isolated browser on our servers. Every request it makes is
+checked by an independent reviewer (Sentinel) that blocks internal addresses and anything you didn't ask for.</p>
 <h2>Who processes it</h2><p>Hosting provider, Meta (WhatsApp delivery), Google (your account), Anthropic (Claude, the AI model,
 under API terms that do not use your data for training).</p>
 <h2>Your rights</h2><p>Access, correction, deletion and withdrawal of consent, from chat or by writing to the operator.
