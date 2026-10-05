@@ -116,6 +116,15 @@ def job_daily() -> None:
             log.exception("voice refresh failed for user %s", uid)
 
 
+def job_demo_cleanup() -> None:
+    from app.demo import delete_expired
+
+    with session_scope() as s:
+        n = delete_expired(s)
+        if n:
+            log.info("removed %d expired demo accounts", n)
+
+
 def add_jobs(sched) -> None:
     cfg = get_settings()
     sched.add_job(job_dispatch, "interval", seconds=20, max_instances=1, coalesce=True)
@@ -124,6 +133,7 @@ def add_jobs(sched) -> None:
     sched.add_job(job_briefs, "cron", minute="*/5", max_instances=1, coalesce=True)
     sched.add_job(job_ideas, "cron", minute="*/10", max_instances=1, coalesce=True)
     sched.add_job(job_daily, "cron", hour=3, minute=17, max_instances=1, coalesce=True)
+    sched.add_job(job_demo_cleanup, "interval", minutes=30, max_instances=1, coalesce=True)
 
 
 def start_background():
