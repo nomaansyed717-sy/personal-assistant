@@ -125,6 +125,10 @@ def exchange_code(session: Session, user_id: int, code: str) -> Connection:
 
 
 def revoke(conn: Connection) -> None:
+    from app.demo import is_demo_connection
+
+    if is_demo_connection(conn):
+        return
     token = decrypt(conn.user_id, conn.refresh_token_enc or conn.access_token_enc)
     if token:
         try:
@@ -138,11 +142,18 @@ def revoke(conn: Connection) -> None:
 
 class GoogleClient:
     def __init__(self, session: Session, conn: Connection):
+        from app import demo
+
         self.session = session
         self.conn = conn
+        self.demo = demo.is_demo_connection(conn)
+        # Demo accounts talk to an in-memory mailbox and calendar; nothing reaches Google.
+        self._http = demo.client_for(conn.user_id, conn.user.timezone if conn.user else "Asia/Kolkata") if self.demo else None
 
     def _token(self) -> str:
         c = self.conn
+        if self.demo:
+            return "demo"
         if c.expires_at and aware(c.expires_at) - utcnow() > timedelta(minutes=2):
             return decrypt(c.user_id, c.access_token_enc)
         refresh = decrypt(c.user_id, c.refresh_token_enc)
@@ -169,7 +180,7 @@ class GoogleClient:
 
     def _req(self, method: str, url: str, **kwargs) -> dict:
         headers = {"Authorization": f"Bearer {self._token()}"}
-        resp = http().request(method, url, headers=headers, **kwargs)
+        resp = (self._http or http()).request(method, url, headers=headers, **kwargs)
         if resp.status_code >= 400:
             raise GoogleError(f"{method} {url} -> {resp.status_code}: {resp.text[:300]}")
         return resp.json() if resp.content else {}
