@@ -508,7 +508,7 @@ $('#composer').onsubmit = async e => {
 // ---- live updates: messages the assistant sends on its own (briefs, task results, demo steps) appear without a reload
 let lastMsgId = 0, sending = false, ME = null, wasBusy = false;
 async function pollMessages() {
-  if (sending || document.hidden || $('#shell').hidden || $('#chat-view').hidden) return;
+  if (sending || $('#shell').hidden || $('#chat-view').hidden) return;
   try {
     const msgs = await api('/messages');
     const fresh = msgs.filter(m => m.id > lastMsgId);
@@ -516,6 +516,7 @@ async function pollMessages() {
   } catch {}
 }
 setInterval(pollMessages, 4000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pollMessages(); });
 
 // ---- live demo
 async function startDemo() {
@@ -529,7 +530,7 @@ async function startDemo() {
 }
 $('#try-demo').onclick = startDemo;
 async function pollDemo() {
-  if (!ME?.demo || document.hidden) return;
+  if (!ME?.demo) return;
   try {
     const st = await api('/demo/status');
     const w = $('#working'); w.hidden = !st.busy; w.textContent = st.busy ? (st.stage || 'Working') + '…' : '';
