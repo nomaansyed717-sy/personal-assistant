@@ -78,6 +78,10 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
 .slip .actions{display:flex;gap:8px;flex-wrap:wrap}
 .tier{font-size:.78rem;font-weight:600;color:var(--muted)}
 .tier.hi{color:var(--rose)}
+.slip details{margin:-.3rem 0 .8rem;font-size:.9rem}
+.slip summary{cursor:pointer;color:var(--ink-2);font-weight:600}
+.slip dl{display:grid;grid-template-columns:auto 1fr;gap:.25rem .9rem;margin:.6rem 0 0;padding:.7rem .8rem;background:var(--fog);border-radius:var(--radius-s)}
+.slip dt{color:var(--muted)} .slip dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
 
 /* activity */
 .tl{border-left:2px solid var(--line);margin-left:6px;padding-left:16px;display:flex;flex-direction:column;gap:12px}
@@ -91,7 +95,9 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
 /* mobile */
 @media (max-width:760px){
   #shell{grid-template-columns:1fr;grid-template-rows:1fr auto}
-  nav.rail{order:2;flex-direction:row;overflow-x:auto;padding:6px;gap:0;padding-bottom:max(6px,env(safe-area-inset-bottom))}
+  nav.rail{order:2;flex-direction:row;overflow-x:auto;padding:6px 40px 6px 6px;gap:0;padding-bottom:max(6px,env(safe-area-inset-bottom));
+    scrollbar-width:none;-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
+  nav.rail::-webkit-scrollbar{display:none}
   .brand,nav.rail .spacer{display:none}
   nav.rail a{flex-direction:column;font-size:.75rem;padding:.4rem .6rem;white-space:nowrap}
   main{padding:16px}
@@ -145,7 +151,7 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
         <button>Plan my week around my goals</button><button>Find subscriptions I can cancel</button>
       </div>
       <form id="composer">
-        <textarea id="say" placeholder="Tell your assistant what you want done" aria-label="Message"></textarea>
+        <textarea id="say" placeholder="Message your assistant" aria-label="Message"></textarea>
         <button class="btn" type="submit">Send</button>
       </form>
     </section>
@@ -243,7 +249,7 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
         <label><input type="checkbox" id="s-paused" style="width:auto"> Pause messages from my assistant</label>
         <label><input type="checkbox" id="s-training" style="width:auto"> Allow my de-identified data to improve the product</label>
         <p class="small muted">Your conversations are never used for advertising.</p>
-        <p><button class="btn" type="submit">Save settings</button></p>
+        <p><button class="btn" type="submit">Save settings</button> <span id="s-status" class="small muted" role="status"></span></p>
       </form>
       <p><button class="btn ghost" id="logout">Sign out</button></p>
     </section>
@@ -274,6 +280,28 @@ function rich(el, text) {
 const h = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const when = iso => iso ? new Date(iso).toLocaleString([], {weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
 const empty = (box, text) => { box.textContent = ''; box.append(h('div', 'empty', text)); };
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : '';
+const day = d => new Date(d + 'T00:00').toLocaleDateString([], {day:'numeric', month:'short', year:'numeric'});
+const money = (n, cur) => { try { return new Intl.NumberFormat(undefined, {style:'currency', currency: cur, maximumFractionDigits: 0}).format(n); } catch { return `${cur} ${Math.round(n)}`; } };
+const DAYS = {mon:'Monday', tue:'Tuesday', wed:'Wednesday', thu:'Thursday', fri:'Friday', sat:'Saturday', sun:'Sunday'};
+const UNITS = {m:'minutes', h:'hours', d:'days'};
+function schedText(s) {
+  let m;
+  if ((m = /^daily (\d\d:\d\d)$/.exec(s))) return 'Every day at ' + m[1];
+  if ((m = /^weekly (\w{3}) (\d\d:\d\d)$/.exec(s))) return `Every ${DAYS[m[1]] || m[1]} at ${m[2]}`;
+  if ((m = /^every (\d+)([mhd])$/.exec(s))) return `Every ${m[1]} ${UNITS[m[2]]}`;
+  if ((m = /^once (.+)$/.exec(s))) return 'Once, ' + when(m[1]);
+  return s;
+}
+const KIND_LABELS = {send_email: 'Email, ready to send', reply_email: 'Reply, ready to send', create_event: 'Calendar hold',
+  purchase: 'Purchase, you do the checkout', browser_task: 'Web task on the secure browser', phone_call: 'Phone call',
+  send_message: 'Message, ready to send'};
+const FIELD_LABELS = {to: 'To', cc: 'Cc', subject: 'Subject', body: 'Message', title: 'Title', start: 'Starts', end: 'Ends',
+  attendees: 'Guests', item: 'Item', price: 'Price', merchant: 'Store', url: 'Link', goal: 'Goal', start_url: 'Starts at'};
+function slipDetails(p) {
+  return Object.entries(FIELD_LABELS).filter(([k]) => p[k] != null && p[k] !== '' && !(Array.isArray(p[k]) && !p[k].length))
+    .map(([k, label]) => [label, Array.isArray(p[k]) ? p[k].join(', ') : (/^\d{4}-\d\d-\d\dT/.test(p[k]) ? when(p[k]) : String(p[k]))]);
+}
 
 function showLogin() { $('#shell').hidden = true; $('#login').hidden = false; }
 $('#login-start').onsubmit = async e => {
@@ -302,8 +330,14 @@ const loaders = {
       const slip = h('article', 'slip');
       const stub = h('div', 'stub'); stub.append(h('b', null, a.number), h('span', null, 'reply #'));
       const main = h('div', 'main');
-      main.append(h('div', 'tier' + (a.tier >= 3 ? ' hi' : ''), a.tier >= 3 ? 'New contact or real-world action, check carefully' : 'Ready to send'));
+      main.append(h('div', 'tier', KIND_LABELS[a.kind] || 'Ready when you are'));
+      if (a.tier >= 3) main.append(h('div', 'tier hi', a.kind === 'purchase' ? 'Spends money, check the price and merchant' : 'New contact or real-world action, check carefully'));
       main.append(rich(h('div', 'preview'), a.preview));
+      const rows = slipDetails(a.payload || {});
+      if (rows.length) {
+        const d = h('details', 'details'); d.append(h('summary', null, 'See exactly what will happen'));
+        const dl = h('dl'); rows.forEach(([k, v]) => dl.append(h('dt', null, k), h('dd', null, v))); d.append(dl); main.append(d);
+      }
       const act = h('div', 'actions');
       const yes = h('button', 'btn', 'Approve'); const no = h('button', 'btn ghost', 'Skip');
       yes.onclick = async () => { yes.disabled = no.disabled = true; try { const r = await api(`/approvals/${a.id}/approve`, {method:'POST'}); alertRow(main, r.result); refreshBadge(); } catch (err) { alertRow(main, err.message); } };
@@ -330,7 +364,7 @@ const loaders = {
     if (!list.length) return empty(box, 'Add a goal and your assistant will plan around it.');
     list.forEach(g => {
       const r = h('div', 'row'); const b = h('div', 'body');
-      b.append(h('strong', null, g.title), h('div', 'small muted', [g.status, g.target_date && ('by ' + g.target_date), g.progress_note].filter(Boolean).join(', ')));
+      b.append(h('strong', null, g.title), h('div', 'small muted', [g.status !== 'active' && cap(g.status), g.target_date && ('By ' + day(g.target_date)), g.progress_note].filter(Boolean).join(' · ')));
       const btn = h('button', 'btn ghost', g.status === 'done' ? 'Reopen' : 'Mark done');
       btn.onclick = async () => { await api(`/goals/${g.id}`, {method:'PATCH', body:{status: g.status === 'done' ? 'active' : 'done'}}); loaders.goals(); };
       r.append(b, btn); box.append(r);
@@ -341,7 +375,8 @@ const loaders = {
     if (!list.length) return empty(box, 'No standing tasks yet. Try "watch this price" or "check every morning if a slot opened".');
     list.forEach(t => {
       const r = h('div', 'row'); const b = h('div', 'body');
-      b.append(h('strong', null, t.title), h('div', 'small muted', `${t.schedule} · ${t.status}${t.next_run_at ? ' · next ' + when(t.next_run_at) : ''} · ran ${t.runs}×`));
+      b.append(h('strong', null, t.title), h('div', 'small muted', [schedText(t.schedule), t.status !== 'active' && cap(t.status),
+        t.status === 'active' && t.next_run_at && ('next ' + when(t.next_run_at)), t.runs ? `ran ${t.runs} time${t.runs === 1 ? '' : 's'}` : 'not run yet'].filter(Boolean).join(' · ')));
       if (t.last_result) b.append(rich(h('div', 'small'), 'Last: ' + t.last_result));
       r.append(b);
       if (t.status === 'active') { const x = h('button', 'btn ghost', 'Stop'); x.onclick = async () => { await api(`/tasks/${t.id}`, {method:'DELETE'}); loaders.tasks(); }; r.append(x); }
@@ -366,8 +401,14 @@ const loaders = {
   async money() {
     const list = await api('/subscriptions'); const box = $('#subs'); box.textContent = '';
     if (!list.length) return empty(box, 'No recurring charges found yet. They appear as your email is read.');
+    const cur = list[0].currency || 'INR', sameCur = list.every(s => (s.currency || 'INR') === cur);
+    const perMonth = {monthly: 1, yearly: 1 / 12, weekly: 52 / 12};
+    const total = list.reduce((t, s) => t + (s.status !== 'cancelled' && s.amount ? s.amount * (perMonth[s.cadence] ?? 0) : 0), 0);
+    if (sameCur && total) box.append(h('p', 'muted', `About ${money(total, cur)} a month across ${list.length} subscriptions.`));
     list.forEach(s => { const r = h('div', 'row');
-      r.append(h('div', 'body', `${s.merchant}`), h('div', null, `${s.currency || ''} ${s.amount ?? '?'} ${s.cadence || ''}`)); box.append(r); });
+      const per = {monthly: ' / month', yearly: ' / year', weekly: ' / week'}[s.cadence] || '';
+      r.append(h('div', 'body', s.merchant + (s.status === 'cancelled' ? ' (cancelled)' : '')),
+               h('div', null, s.amount != null ? money(s.amount, s.currency || cur) + per : 'Amount unknown')); box.append(r); });
   },
   async vault() {
     const list = await api('/vault'); const box = $('#vault'); box.textContent = '';
@@ -406,16 +447,18 @@ submit('#task-form', async () => { await api('/tasks', {method:'POST', body:{tit
 submit('#memory-form', async () => { await api('/memories', {method:'POST', body:{text: $('#memory-text').value}}); loaders.memory(); });
 submit('#skill-form', async () => { await api('/skills', {method:'POST', body:{name: $('#skill-name').value, description: $('#skill-desc').value, instructions: $('#skill-instr').value}}); loaders.skills(); });
 submit('#vault-form', async () => { await api('/vault', {method:'POST', body:{label: $('#v-label').value, site: $('#v-site').value, username: $('#v-user').value, secret: $('#v-secret').value}}); loaders.vault(); });
-$('#settings-form').onsubmit = async e => { e.preventDefault();
-  await api('/settings', {method:'PATCH', body:{assistant_name: $('#s-name').value || null, persona: $('#s-persona').value, timezone: $('#s-tz').value || null,
+$('#settings-form').onsubmit = async e => { e.preventDefault(); $('#s-status').textContent = '';
+  try { await api('/settings', {method:'PATCH', body:{assistant_name: $('#s-name').value || null, persona: $('#s-persona').value, timezone: $('#s-tz').value || null,
     brief_hour: Number($('#s-brief').value), ideas_enabled: $('#s-ideas').checked, paused: $('#s-paused').checked, training_opt_in: $('#s-training').checked}});
-  $('#brand').textContent = $('#s-name').value || '{{APP_NAME}}'; alert('Settings saved'); };
+  $('#brand').textContent = $('#s-name').value || '{{APP_NAME}}'; $('#s-status').textContent = 'Settings saved'; }
+  catch (err) { $('#s-status').textContent = err.message; } };
 $('#logout').onclick = async () => { await api('/logout', {method:'POST'}); showLogin(); };
 
 function route() {
   const v = (location.hash || '#chat').slice(1);
   document.querySelectorAll('[data-view]').forEach(s => s.hidden = s.dataset.view !== v);
   document.querySelectorAll('nav.rail a').forEach(a => { if (a.getAttribute('href') !== '#' + v) a.removeAttribute('aria-current'); else a.setAttribute('aria-current', 'page'); });
+  document.querySelector('nav.rail a[aria-current]')?.scrollIntoView({block: 'nearest', inline: 'center'});
   (loaders[v] || loaders.chat)().catch(() => {});
 }
 async function boot() {
