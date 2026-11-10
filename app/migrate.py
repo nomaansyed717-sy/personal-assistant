@@ -51,3 +51,23 @@ def add_missing_columns(engine: Engine) -> list[str]:
     if added:
         log.info("added columns: %s", ", ".join(added))
     return added
+
+
+# Columns that later became optional. create_all() never relaxes NOT NULL on a live table.
+RELAXED = [("users", "phone")]
+
+
+def relax_not_null(engine: Engine) -> list[str]:
+    if engine.dialect.name != "postgresql":
+        return []  # SQLite is dev/test only and is created fresh from the models
+    insp = inspect(engine)
+    changed = []
+    with engine.begin() as conn:
+        for table, column in RELAXED:
+            cols = {c["name"]: c for c in insp.get_columns(table)} if table in insp.get_table_names() else {}
+            if column in cols and not cols[column]["nullable"]:
+                conn.execute(text(f'ALTER TABLE "{table}" ALTER COLUMN "{column}" DROP NOT NULL'))
+                changed.append(f"{table}.{column}")
+    if changed:
+        log.info("now nullable: %s", ", ".join(changed))
+    return changed

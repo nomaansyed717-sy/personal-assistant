@@ -22,7 +22,33 @@ class Settings(BaseSettings):
     model_smart: str = "claude-sonnet-5-5"  # planning, drafting, conversation
     model_fast: str = "claude-haiku-4-5-20251001"  # extraction, classification
 
-    # WhatsApp Cloud API (Meta)
+    # The app (Android app + web app) is the main product. Sign-in codes go out by email or SMS.
+    # Email: "resend" (RESEND_API_KEY) or "smtp"; anything else logs the code (development only).
+    email_provider: str = "console"
+    email_from: str = "Aide <hello@example.com>"
+    resend_api_key: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    # SMS: "msg91" (India, DLT template) or "twilio"; anything else logs the code (development only).
+    sms_provider: str = "console"
+    msg91_auth_key: str = ""
+    msg91_template_id: str = ""  # DLT-approved OTP template with a ##OTP## variable
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from: str = ""
+    # Push notifications through Expo's push service (optional access token for enhanced security)
+    expo_access_token: str = ""
+    # Extra browser origins allowed to call the API (comma-separated), e.g. the Expo web dev server
+    cors_origins: str = ""
+    # Deep link scheme of the Android app, used after Google sign-in
+    app_scheme: str = "aide"
+    # Where people download the Android app (Play Store or an APK link), shown on the homepage
+    android_app_url: str = ""
+
+    # WhatsApp Cloud API (Meta). Optional legacy channel: Meta's Business API terms bar
+    # general-purpose AI assistants, so the product runs app-first and WhatsApp stays off by default.
     whatsapp_token: str = ""
     whatsapp_phone_number_id: str = ""
     whatsapp_verify_token: str = ""  # any secret string, also set in the Meta webhook config
@@ -53,8 +79,6 @@ class Settings(BaseSettings):
     # Run the scheduler inside the web process (one Railway service). Set false if you run a worker.
     run_worker_in_web: bool = True
 
-    # Public WhatsApp number of the assistant, for wa.me links on the homepage (digits only)
-    public_whatsapp_number: str = ""
 
     # Behaviour
     default_brief_hour: int = 8  # local time
@@ -88,11 +112,17 @@ def missing_config(s: Settings | None = None) -> list[str]:
         "GOOGLE_CLIENT_SECRET": s.google_client_secret,
     }
     if s.env == "prod":
+        email_ok = (s.email_provider == "resend" and s.resend_api_key) or (s.email_provider == "smtp" and s.smtp_host)
+        sms_ok = (s.sms_provider == "msg91" and s.msg91_auth_key) or (s.sms_provider == "twilio" and s.twilio_account_sid)
         required |= {
             "BASE_URL (https)": s.base_url if s.base_url.startswith("https://") else "",
-            "WHATSAPP_TOKEN": s.whatsapp_token,
-            "WHATSAPP_PHONE_NUMBER_ID": s.whatsapp_phone_number_id,
-            "WHATSAPP_VERIFY_TOKEN": s.whatsapp_verify_token,
-            "WHATSAPP_APP_SECRET": s.whatsapp_app_secret,
+            "EMAIL_PROVIDER or SMS_PROVIDER (sign-in codes)": "ok" if (email_ok or sms_ok) else "",
         }
+        if whatsapp_enabled(s):
+            required |= {"WHATSAPP_VERIFY_TOKEN": s.whatsapp_verify_token, "WHATSAPP_APP_SECRET": s.whatsapp_app_secret}
     return [k for k, v in required.items() if not v]
+
+
+def whatsapp_enabled(s: Settings | None = None) -> bool:
+    s = s or get_settings()
+    return bool(s.whatsapp_token and s.whatsapp_phone_number_id)

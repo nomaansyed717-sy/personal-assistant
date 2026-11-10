@@ -33,10 +33,11 @@ label{display:block;font-weight:600;font-size:.9rem;margin:.8rem 0 .3rem}
 [hidden]{display:none!important}
 
 /* sign in */
-#login{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--ink)}
+#login,#setup{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--ink)}
 .login-card{background:var(--paper);border-radius:var(--radius-l);padding:28px;max-width:400px;width:100%}
 .login-card h1{font-size:2rem;margin-bottom:.3rem}
 .login-card .btn{width:100%;margin-top:1rem}
+.login-card h2{margin-bottom:.3rem}
 
 /* shell */
 #shell{display:grid;grid-template-columns:232px 1fr;height:100%}
@@ -124,6 +125,26 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
 .login-card .demo-cta{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
 .login-card .demo-cta .btn{margin-top:.6rem}
 @media (prefers-reduced-motion:no-preference){ .slip{animation:in .25s ease-out} @keyframes in{from{transform:translateY(4px);opacity:0}} }
+/* sign-in method switch, setup */
+.seg{display:flex;background:var(--fog);border-radius:999px;padding:3px;margin:14px 0 4px}
+.seg button{flex:1;border:0;background:transparent;border-radius:999px;padding:.45rem;cursor:pointer;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--paper);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.steps-dots{display:flex;gap:6px;margin:0 0 14px}
+.steps-dots i{width:28px;height:4px;border-radius:2px;background:var(--line)} .steps-dots i.on{background:var(--marigold)}
+.check{display:flex;gap:10px;align-items:flex-start;font-weight:500} .check input{width:auto;margin-top:.3rem}
+.login-card ul{padding-left:1.1rem;margin:.6rem 0} .login-card li{margin:.25rem 0}
+/* today */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-s);padding:14px 16px}
+.card .big{font-family:"Bricolage Grotesque",Figtree,sans-serif;font-size:1.8rem;font-weight:700;line-height:1.1}
+.card a{color:var(--ink-2);font-weight:600;text-decoration:none}
+.loop .who{font-size:.8rem;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--muted)}
+.loop .acts{display:flex;gap:6px;flex-wrap:wrap}
+.loop .acts .btn{padding:.35rem .8rem;font-size:.85rem}
+/* composer extras */
+.icon-btn{flex:none;width:48px;height:48px;border-radius:50%;border:1px solid var(--line);background:var(--paper);cursor:pointer;font-size:1.15rem}
+.icon-btn.rec{background:var(--rose);color:#fff;border-color:var(--rose)}
+.acct{display:grid;grid-template-columns:auto 1fr auto;gap:.5rem 1rem;align-items:center}
 </style>
 </head>
 <body>
@@ -131,29 +152,66 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
 <section id="login" hidden>
   <div class="login-card">
     <h1>{{APP_NAME}}</h1>
-    <p class="muted">Sign in with the WhatsApp number you use to message your assistant. We'll send a code there.</p>
+    <p class="muted">Your personal AI chief of staff. Sign in or create an account with a one-time code. No password.</p>
+    <div class="seg" role="group" aria-label="Sign in with">
+      <button type="button" data-method="email" aria-pressed="true">Email</button>
+      <button type="button" data-method="phone" aria-pressed="false">Phone</button>
+    </div>
     <form id="login-start">
-      <label for="phone">WhatsApp number</label>
-      <input id="phone" type="tel" autocomplete="tel" placeholder="+91 98765 43210" required>
+      <label for="ident" id="ident-label">Email address</label>
+      <input id="ident" type="email" autocomplete="email" placeholder="you@example.com" required>
       <button class="btn" type="submit">Send code</button>
     </form>
     <form id="login-verify" hidden>
-      <label for="code">6-digit code from WhatsApp</label>
+      <label for="code">6-digit code</label>
       <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
-      <button class="btn" type="submit">Sign in</button>
-      <p class="small muted">No code? Send "hi" to your assistant on WhatsApp, then try again.</p>
+      <button class="btn" type="submit">Continue</button>
+      <p class="small muted"><a href="#" id="login-back">Use a different email or number</a></p>
     </form>
     <p id="login-msg" class="small" role="status"></p>
     <div class="demo-cta">
-      <p class="small muted">No account yet? Try the real assistant on a sample inbox and calendar. Nothing is sent, booked or paid.</p>
+      <p class="small muted">Just looking? Try the real assistant on a sample inbox and calendar. Nothing is sent, booked or paid.</p>
       <button class="btn ghost" id="try-demo" type="button">Try the live demo</button>
     </div>
+  </div>
+</section>
+
+<section id="setup" hidden>
+  <div class="login-card">
+    <div class="steps-dots" aria-hidden="true"><i class="on"></i><i id="dot2"></i><i id="dot3"></i></div>
+    <form id="setup-consent">
+      <h2>Welcome</h2>
+      <p class="muted">Before we start, here's how your assistant treats your data.</p>
+      <ul class="small">
+        <li>Everything is encrypted with a key unique to you.</li>
+        <li>Nothing goes to someone new, and nothing is booked or bought, without your yes.</li>
+        <li>Your data is never used for ads. Delete everything any time.</li>
+      </ul>
+      <label for="setup-name">What should it call you?</label>
+      <input id="setup-name" autocomplete="given-name" placeholder="Your first name">
+      <label class="check"><input type="checkbox" id="setup-accept" required> I agree to the <a href="/privacy" target="_blank">privacy policy and terms</a>.</label>
+      <button class="btn" type="submit">Agree and continue</button>
+    </form>
+    <div id="setup-connect" hidden>
+      <h2>Connect your email</h2>
+      <p class="muted">Connect Gmail and Google Calendar so your assistant can find what you've promised, what you're owed, and what's on today. It only sends what you approve.</p>
+      <button class="btn" id="setup-google" type="button">Connect Google</button>
+      <button class="btn ghost" id="setup-skip" type="button">Skip for now</button>
+      <p class="small muted">Outlook and Zoho Mail are coming.</p>
+    </div>
+    <div id="setup-syncing" hidden>
+      <h2>Reading your last few weeks</h2>
+      <p class="muted">This takes a few minutes. Your first brief appears here as soon as it's ready.</p>
+      <div class="working" role="status">Working</div>
+    </div>
+    <p id="setup-msg" class="small" role="status"></p>
   </div>
 </section>
 
 <div id="shell" hidden>
   <nav class="rail" aria-label="Sections">
     <div class="brand" id="brand">{{APP_NAME}}</div>
+    <a href="#today">Today</a>
     <a href="#chat">Chat</a>
     <a href="#inbox" id="nav-inbox" hidden>Sample inbox</a>
     <a href="#approvals">Approvals <span class="badge" id="approval-count" hidden></span></a>
@@ -168,6 +226,17 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
     <a href="#settings">Settings</a>
   </nav>
   <main>
+    <section class="view" data-view="today" hidden>
+      <header><div><h2 id="today-greeting">Today</h2><p class="muted" id="today-sub"></p></div></header>
+      <div class="cards" id="today-cards"></div>
+      <h3 class="section-title">Needs you</h3>
+      <div class="list" id="today-loops"></div>
+      <h3 class="section-title">On the calendar</h3>
+      <div class="list" id="today-events"></div>
+      <h3 class="section-title">Goals</h3>
+      <div class="list" id="today-goals"></div>
+    </section>
+
     <section class="view" id="chat-view" data-view="chat">
       <div class="demo-bar" id="demo-bar" hidden>
         <p><strong>Live demo.</strong> The assistant is real. The inbox, calendar and outside world are simulated, so nothing is actually sent, booked or paid.</p>
@@ -188,7 +257,10 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
         <button>Plan my week around my goals</button><button>Find subscriptions I can cancel</button>
       </div>
       <form id="composer">
+        <button class="icon-btn" type="button" id="attach" aria-label="Send a photo, PDF or text file" title="Photo, PDF or text file">📎</button>
+        <input type="file" id="file" accept="image/*,application/pdf,text/plain" hidden>
         <textarea id="say" placeholder="Message your assistant" aria-label="Message"></textarea>
+        <button class="icon-btn" type="button" id="mic" aria-label="Record a voice note" title="Voice note">🎤</button>
         <button class="btn" type="submit">Send</button>
       </form>
     </section>
@@ -204,7 +276,7 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
     </section>
 
     <section class="view" data-view="approvals" hidden>
-      <header><div><h2>Approvals</h2><p class="muted">Nothing sensitive happens until you approve it here or on WhatsApp.</p></div></header>
+      <header><div><h2>Approvals</h2><p class="muted">Nothing sensitive happens until you approve it here or in the Android app.</p></div></header>
       <div class="list" id="approvals"></div>
     </section>
 
@@ -298,7 +370,10 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
         <p class="small muted">Your conversations are never used for advertising.</p>
         <p><button class="btn" type="submit">Save settings</button> <span id="s-status" class="small muted" role="status"></span></p>
       </form>
-      <p><button class="btn ghost" id="logout">Sign out</button></p>
+      <h3 class="section-title">Account</h3>
+      <div class="card acct" id="acct"></div>
+      <p class="small muted">Get the Android app to approve things from your notifications.</p>
+      <p><button class="btn ghost" id="logout">Sign out</button> <button class="btn warn" id="delete-account">Delete everything</button></p>
     </section>
   </main>
 </div>
@@ -350,20 +425,88 @@ function slipDetails(p) {
     .map(([k, label]) => [label, Array.isArray(p[k]) ? p[k].join(', ') : (/^\d{4}-\d\d-\d\dT/.test(p[k]) ? when(p[k]) : String(p[k]))]);
 }
 
-function showLogin() { $('#shell').hidden = true; $('#login').hidden = false; }
+function showLogin() { $('#shell').hidden = true; $('#setup').hidden = true; $('#login').hidden = false; }
+let method = 'email';
+document.querySelectorAll('[data-method]').forEach(b => b.onclick = () => {
+  method = b.dataset.method;
+  document.querySelectorAll('[data-method]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  const i = $('#ident'); i.value = '';
+  if (method === 'email') { $('#ident-label').textContent = 'Email address'; i.type = 'email'; i.autocomplete = 'email'; i.placeholder = 'you@example.com'; }
+  else { $('#ident-label').textContent = 'Mobile number, with country code'; i.type = 'tel'; i.autocomplete = 'tel'; i.placeholder = '+91 98765 43210'; }
+  i.focus();
+});
+const ident = () => method === 'email' ? {email: $('#ident').value.trim()} : {phone: $('#ident').value.trim()};
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 $('#login-start').onsubmit = async e => {
   e.preventDefault();
-  try { const r = await api('/login/start', {method:'POST', body:{phone: $('#phone').value}});
-    $('#login-msg').textContent = r.note; $('#login-verify').hidden = false; $('#code').focus(); }
+  try { const r = await api('/auth/start', {method:'POST', body:{...ident(), tz: TZ}});
+    $('#login-msg').textContent = r.sent_to === 'email' ? 'We emailed you a 6-digit code.' : 'We texted you a 6-digit code.';
+    $('#login-start').hidden = true; $('#login-verify').hidden = false; $('#code').focus(); }
   catch (err) { $('#login-msg').textContent = err.message; }
 };
 $('#login-verify').onsubmit = async e => {
   e.preventDefault();
-  try { await api('/login/verify', {method:'POST', body:{phone: $('#phone').value, code: $('#code').value}}); boot(); }
+  try { await api('/auth/verify', {method:'POST', body:{...ident(), code: $('#code').value, client: 'web'}}); $('#login-msg').textContent = ''; boot(); }
   catch (err) { $('#login-msg').textContent = err.message; }
+};
+$('#login-back').onclick = e => { e.preventDefault(); $('#login-verify').hidden = true; $('#login-start').hidden = false; $('#code').value = ''; $('#login-msg').textContent = ''; };
+
+// ---- setup: consent, connect Google (or skip), first sync
+function showSetup(state) {
+  $('#login').hidden = true; $('#shell').hidden = true; $('#setup').hidden = false;
+  $('#setup-consent').hidden = state !== 'awaiting_consent';
+  $('#setup-connect').hidden = state !== 'awaiting_connect';
+  $('#setup-syncing').hidden = state !== 'syncing';
+  $('#dot2').className = state !== 'awaiting_consent' ? 'on' : ''; $('#dot3').className = state === 'syncing' ? 'on' : '';
+  if (state === 'syncing') setTimeout(boot, 5000);
+}
+$('#setup-consent').onsubmit = async e => {
+  e.preventDefault();
+  try { const r = await api('/onboarding/consent', {method:'POST', body:{accept: $('#setup-accept').checked, name: $('#setup-name').value.trim() || null, timezone: TZ}});
+    showSetup(r.onboarding_state); }
+  catch (err) { $('#setup-msg').textContent = err.message; }
+};
+$('#setup-google').onclick = async () => {
+  try { const r = await api('/onboarding/google', {method:'POST', body:{client: 'web'}}); location.href = r.url; }
+  catch (err) { $('#setup-msg').textContent = err.message; }
+};
+$('#setup-skip').onclick = async () => {
+  try { await api('/onboarding/skip', {method:'POST'}); location.hash = '#chat'; boot(); }
+  catch (err) { $('#setup-msg').textContent = err.message; }
 };
 
 const loaders = {
+  async today() {
+    const t = await api('/today');
+    $('#today-greeting').textContent = t.greeting;
+    $('#today-sub').textContent = new Date().toLocaleDateString([], {weekday:'long', day:'numeric', month:'long'}) + (t.paused ? ' · messages paused' : '');
+    const cards = $('#today-cards'); cards.textContent = '';
+    const card = (big, label, href) => { const c = h('div', 'card'); c.append(h('div', 'big', String(big)), h('div', 'small muted', label));
+      if (href) { const a = h('a', 'small', 'Open'); a.href = href; c.append(a); } cards.append(c); };
+    card(t.approvals, t.approvals === 1 ? 'thing waiting for your yes' : 'things waiting for your yes', '#approvals');
+    card(t.loops.length, 'open loops in focus', null);
+    card(t.standing_tasks, 'standing tasks running', '#tasks');
+    const cur = Object.keys(t.subscriptions_monthly)[0];
+    if (cur) card(money(t.subscriptions_monthly[cur], cur), 'a month in subscriptions', '#money');
+    const loops = $('#today-loops'); loops.textContent = '';
+    if (!t.loops.length) empty(loops, 'Nothing slipping. Ask your assistant to track a promise, or connect Google so it finds them for you.');
+    t.loops.forEach(l => {
+      const r = h('div', 'row loop'); const b = h('div', 'body');
+      b.append(h('div', 'who', (l.direction === 'user_owes' ? 'You owe ' : 'Waiting on ') + (l.person || 'someone')), h('div', null, l.description));
+      if (l.due_at) b.append(h('div', 'small muted', 'Due ' + when(l.due_at)));
+      const acts = h('div', 'acts');
+      const done = h('button', 'btn ghost', 'Done'); done.onclick = async () => { await api(`/loops/${l.id}`, {method:'POST', body:{action:'done'}}); r.remove(); };
+      const later = h('button', 'btn ghost', 'Snooze 3 days'); later.onclick = async () => { await api(`/loops/${l.id}`, {method:'POST', body:{action:'snooze', days:3}}); r.remove(); };
+      const draft = h('button', 'btn', 'Draft it'); draft.onclick = () => { location.hash = '#chat'; $('#say').value = 'Draft what I need to send for: ' + l.description; $('#say').focus(); };
+      acts.append(draft, done, later); r.append(b, acts); loops.append(r);
+    });
+    const ev = $('#today-events'); ev.textContent = '';
+    if (!t.events.length) empty(ev, 'Nothing on the calendar today.');
+    t.events.forEach(e => { const r = h('div', 'row'); r.append(h('div', 'body', e.title), h('div', 'small muted', new Date(e.start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}))); ev.append(r); });
+    const g = $('#today-goals'); g.textContent = '';
+    if (!t.goals.length) { empty(g, 'No goals yet.'); const a = h('a', 'small', 'Add a goal'); a.href = '#goals'; g.append(a); }
+    t.goals.forEach(x => { const r = h('div', 'row'); const b = h('div', 'body'); b.append(h('strong', null, x.title)); if (x.progress_note) b.append(h('div', 'small muted', x.progress_note)); r.append(b); g.append(r); });
+  },
   async chat() {
     const msgs = await api('/messages'); const t = $('#thread'); t.textContent = '';
     if (!msgs.length) empty(t, 'Say hello, or try one of the suggestions below.');
@@ -483,13 +626,21 @@ const loaders = {
     const me = await api('/me');
     $('#s-name').value = me.assistant_name || ''; $('#s-persona').value = me.persona || ''; $('#s-tz').value = me.timezone;
     $('#s-brief').value = me.brief_hour; $('#s-ideas').checked = me.ideas_enabled; $('#s-paused').checked = me.paused; $('#s-training').checked = me.training_opt_in;
+    const acct = $('#acct'); acct.textContent = '';
+    const line = (k, v, btn) => { acct.append(h('div', 'muted small', k), h('div', null, v || '—')); acct.append(btn || h('span')); };
+    if (me.email) line('Email', me.email); if (me.phone && !me.demo) line('Phone', me.phone);
+    let g;
+    if (me.demo) g = null;
+    else if (me.google) { g = h('button', 'btn ghost', 'Disconnect'); g.onclick = async () => { if (!confirm('Disconnect Google? Your assistant stops reading new email.')) return; await api('/connections/google', {method:'DELETE'}); loaders.settings(); }; }
+    else { g = h('button', 'btn ghost', 'Connect'); g.onclick = async () => { try { const r = await api('/onboarding/google', {method:'POST', body:{client:'web'}}); location.href = r.url; } catch (err) { alert(err.message); } }; }
+    line('Google', me.demo ? 'Sample inbox (demo)' : (me.google || 'Not connected'), g);
   },
 };
 function alertRow(el, text) { const p = rich(h('p', 'small'), text); el.append(p); }
 function addMsg(from, text, at, channel) {
   const t = $('#thread'); t.querySelector('.empty')?.remove();
   const m = rich(h('div', 'msg ' + (from === 'me' ? 'me' : 'assistant')), text);
-  const via = {whatsapp: ' · WhatsApp', demo: ' · WhatsApp (simulated)'}[channel] || '';
+  const via = {whatsapp: ' · WhatsApp', demo: ' · demo'}[channel] || '';
   if (at) m.append(h('span', 'meta', when(at) + via));
   t.append(m); t.scrollTop = t.scrollHeight;
 }
@@ -503,6 +654,37 @@ $('#composer').onsubmit = async e => {
   try { await api('/chat', {method:'POST', body:{text}}); typing.remove(); await loaders.chat(); refreshBadge(); }
   catch (err) { typing.remove(); addMsg('assistant', err.message); }
   finally { sending = false; }
+};
+
+// ---- attachments and voice notes
+async function upload(blob, filename, voice) {
+  const fd = new FormData(); fd.append('file', blob, filename); fd.append('voice', voice ? 'true' : 'false');
+  const caption = $('#say').value.trim(); if (caption && !voice) { fd.append('caption', caption); $('#say').value = ''; }
+  addMsg('me', voice ? '🎤 Voice note' : '📎 ' + filename + (caption && !voice ? '\n' + caption : ''));
+  const typing = rich(h('div', 'msg assistant muted'), voice ? 'Listening…' : 'Reading…'); $('#thread').append(typing);
+  sending = true;
+  try {
+    const r = await fetch('/api/chat/upload', {method:'POST', body: fd, credentials:'same-origin', headers:{'X-Requested-With':'aide'}});
+    const d = await r.json().catch(() => ({}));
+    typing.remove();
+    if (!r.ok) throw new Error(d.detail || 'Upload failed');
+    await loaders.chat(); refreshBadge();
+  } catch (err) { typing.remove(); addMsg('assistant', err.message); }
+  finally { sending = false; }
+}
+$('#attach').onclick = () => $('#file').click();
+$('#file').onchange = () => { const f = $('#file').files[0]; if (f) upload(f, f.name, false); $('#file').value = ''; };
+let rec = null, chunks = [];
+$('#mic').onclick = async () => {
+  if (rec) { rec.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    rec = new MediaRecorder(stream); chunks = [];
+    rec.ondataavailable = e => chunks.push(e.data);
+    rec.onstop = () => { stream.getTracks().forEach(t => t.stop()); $('#mic').classList.remove('rec'); $('#mic').textContent = '🎤';
+      const blob = new Blob(chunks, {type: rec.mimeType || 'audio/webm'}); rec = null; if (blob.size > 800) upload(blob, 'voice.webm', true); };
+    rec.start(); $('#mic').classList.add('rec'); $('#mic').textContent = '■';
+  } catch { addMsg('assistant', "I can't reach your microphone. Check the browser's permission for this site."); }
 };
 
 // ---- live updates: messages the assistant sends on its own (briefs, task results, demo steps) appear without a reload
@@ -567,17 +749,25 @@ $('#settings-form').onsubmit = async e => { e.preventDefault(); $('#s-status').t
   $('#brand').textContent = $('#s-name').value || '{{APP_NAME}}'; $('#s-status').textContent = 'Settings saved'; }
   catch (err) { $('#s-status').textContent = err.message; } };
 $('#logout').onclick = async () => { await api('/logout', {method:'POST'}); showLogin(); };
+$('#delete-account').onclick = async () => {
+  if (!confirm('Delete everything? This erases your account, memories and history, and disconnects Google. It cannot be undone.')) return;
+  await api('/chat', {method:'POST', body:{text:'delete everything'}});
+  const r = await api('/chat', {method:'POST', body:{text:'DELETE'}});
+  if (r.deleted) { alert('Everything is deleted.'); showLogin(); }
+};
 
 function route() {
-  const v = (location.hash || '#chat').slice(1);
+  const v = (location.hash || (ME && ME.demo ? '#chat' : '#today')).slice(1);
   document.querySelectorAll('[data-view]').forEach(s => s.hidden = s.dataset.view !== v);
   document.querySelectorAll('nav.rail a').forEach(a => { if (a.getAttribute('href') !== '#' + v) a.removeAttribute('aria-current'); else a.setAttribute('aria-current', 'page'); });
   document.querySelector('nav.rail a[aria-current]')?.scrollIntoView({block: 'nearest', inline: 'center'});
-  (loaders[v] || loaders.chat)().catch(() => {});
+  (loaders[v] || loaders.today)().catch(() => {});
 }
 async function boot() {
   try { const me = await api('/me'); ME = me; $('#brand').textContent = me.assistant_name || '{{APP_NAME}}'; document.title = me.assistant_name || '{{APP_NAME}}'; }
   catch { if (location.hash === '#try') startDemo(); return; }
+  if (!ME.demo && ME.onboarding_state !== 'active') return showSetup(ME.onboarding_state);
+  $('#setup').hidden = true;
   const isDemo = !!ME.demo;
   ['#demo-bar', '#demo-ctl', '#nav-inbox'].forEach(sel => $(sel).hidden = !isDemo);
   if (isDemo) { const p = $('#brand').querySelector('.pill') || h('span', 'pill', 'Demo'); $('#brand').append(p); wasBusy = true; pollDemo(); }

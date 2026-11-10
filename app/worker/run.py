@@ -107,6 +107,9 @@ def job_daily() -> None:
     with session_scope() as s:
         purged = purge_raw(s, get_settings().raw_retention_days)
         s.execute(delete(OAuthState).where(OAuthState.created_at < utcnow() - timedelta(days=2)))
+        from app.agent.account import purge_unverified
+
+        purge_unverified(s)
         log.info("purged raw text from %d events", purged)
     for uid in _user_ids():
         try:

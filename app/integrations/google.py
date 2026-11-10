@@ -71,10 +71,10 @@ def redirect_uri() -> str:
     return get_settings().base_url.rstrip("/") + "/oauth/google/callback"
 
 
-def start_url(session: Session, user_id: int) -> str:
-    """A one-time link the assistant texts to the user."""
+def start_url(session: Session, user_id: int, return_to: str = "chat") -> str:
+    """A one-time link to Google's consent screen. return_to: app | web | chat (where to go afterwards)."""
     token = secrets.token_urlsafe(24)
-    session.add(OAuthState(token=token, user_id=user_id))
+    session.add(OAuthState(token=token, user_id=user_id, return_to=return_to))
     return get_settings().base_url.rstrip("/") + f"/connect/google?s={token}"
 
 

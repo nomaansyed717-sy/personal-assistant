@@ -40,7 +40,8 @@ class Verdict:
     reason: str = ""
 
 
-def check_url(url: str) -> Verdict:
+def check_url(url: str, resolve: bool = True) -> Verdict:
+    """resolve=False skips the DNS lookup, for simulated (demo) actions that never touch the network."""
     try:
         p = urlparse(url)
     except ValueError:
@@ -53,7 +54,7 @@ def check_url(url: str) -> Verdict:
     if host == "localhost" or host.endswith(BLOCKED_HOST_SUFFIXES):
         if not get_settings().allow_private_urls:
             return Verdict(False, "internal hosts are blocked")
-    if get_settings().allow_private_urls:
+    if get_settings().allow_private_urls or not resolve:
         return Verdict(True)
     try:
         infos = socket.getaddrinfo(host, p.port or (443 if p.scheme == "https" else 80), proto=socket.IPPROTO_TCP)
@@ -91,9 +92,10 @@ def review_action(session: Session, user: User, action: Action, llm: LLM | None)
     payload_text = to_json(action.payload)
     if action.kind in ("send_email", "browser_task", "phone_call") and contains_secret(payload_text):
         return Verdict(False, "it contains what looks like a card number, code, key or password")
+    simulated = bool(user.demo) and action.kind in ("browser_task", "phone_call")
     for key in ("url", "start_url"):
         if action.payload.get(key):
-            v = check_url(action.payload[key])
+            v = check_url(action.payload[key], resolve=not simulated)
             if not v.allowed:
                 return v
     if action.tier < 2 or llm is None:

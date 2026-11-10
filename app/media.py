@@ -1,5 +1,5 @@
-"""Turn WhatsApp attachments into something the model can use: images and PDFs go to Claude
-directly; voice notes are transcribed (OpenAI transcription API, optional)."""
+"""Turn attachments (from the app, or legacy WhatsApp) into something the model can use: images and
+PDFs go to Claude directly; voice notes are transcribed (OpenAI transcription API, optional)."""
 import base64
 import logging
 
@@ -21,17 +21,27 @@ def prepare(msg: InboundMessage) -> tuple[str, list[dict]]:
     if not msg.media_id:
         return msg.text, []
     data, mime = get_channel().download_media(msg.media_id)
-    mime = (msg.mime or mime or "").split(";")[0].strip().lower()
-    caption = msg.text or ""
-    if msg.kind == "audio" or mime.startswith("audio/"):
-        return transcribe(data, mime, msg.filename), []
+    return prepare_bytes(data, msg.mime or mime, msg.text or "", msg.filename, audio=msg.kind == "audio")
+
+
+MAX_UPLOAD = 20 * 1024 * 1024
+
+
+def prepare_bytes(data: bytes, mime: str | None, caption: str = "", filename: str | None = None,
+                  audio: bool = False) -> tuple[str, list[dict]]:
+    """Same as prepare(), for bytes uploaded straight from the app."""
+    if len(data) > MAX_UPLOAD:
+        raise MediaError("That file is over 20 MB. Please send a smaller one.")
+    mime = (mime or "").split(";")[0].strip().lower()
+    if audio or mime.startswith("audio/"):
+        return transcribe(data, mime, filename), []
     b64 = base64.standard_b64encode(data).decode()
     if mime in IMAGE_TYPES:
         return caption or "(The user sent this photo without a caption. Work out what they likely want.)", [
             {"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64}}
         ]
     if mime == "application/pdf":
-        return caption or f"(The user sent the document {msg.filename or 'a PDF'} without a caption.)", [
+        return caption or f"(The user sent the document {filename or 'a PDF'} without a caption.)", [
             {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": b64}}
         ]
     if mime.startswith("text/"):
@@ -43,7 +53,8 @@ def transcribe(data: bytes, mime: str, filename: str | None = None) -> str:
     s = get_settings()
     if not s.openai_api_key:
         raise MediaError("Voice notes need transcription switched on (OPENAI_API_KEY). Please type it for now.")
-    ext = {"audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac", "audio/amr": "amr"}.get(mime, "ogg")
+    ext = {"audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac", "audio/amr": "amr",
+           "audio/webm": "webm", "audio/x-m4a": "m4a", "audio/m4a": "m4a", "audio/wav": "wav"}.get(mime, "ogg")
     r = httpx.post(
         "https://api.openai.com/v1/audio/transcriptions",
         headers={"Authorization": f"Bearer {s.openai_api_key}"},

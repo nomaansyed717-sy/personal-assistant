@@ -14,10 +14,13 @@ envVarGroups:
       - { key: RUN_WORKER_IN_WEB, value: "false" }  # the worker service below runs the scheduler
       - { key: MASTER_KEY, generateValue: true }
       - { key: ANTHROPIC_API_KEY, sync: false }
-      - { key: WHATSAPP_TOKEN, sync: false }
-      - { key: WHATSAPP_PHONE_NUMBER_ID, sync: false }
-      - { key: WHATSAPP_VERIFY_TOKEN, sync: false }
-      - { key: WHATSAPP_APP_SECRET, sync: false }
+      - { key: EMAIL_PROVIDER, value: resend }
+      - { key: RESEND_API_KEY, sync: false }
+      - { key: EMAIL_FROM, sync: false }
+      - { key: SMS_PROVIDER, value: msg91 }
+      - { key: MSG91_AUTH_KEY, sync: false }
+      - { key: MSG91_TEMPLATE_ID, sync: false }
+      - { key: EXPO_ACCESS_TOKEN, sync: false }
       - { key: GOOGLE_CLIENT_ID, sync: false }
       - { key: GOOGLE_CLIENT_SECRET, sync: false }
 

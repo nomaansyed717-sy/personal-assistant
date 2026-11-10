@@ -1,4 +1,9 @@
-"""First contact to first value in under ten minutes, entirely in chat."""
+"""First contact to first value in under ten minutes.
+
+App users (the main path) sign in with an email or SMS code and go through consent and Google
+connection on in-app screens, which call accept_terms() and skip_connect() below. Legacy WhatsApp
+users do the same steps in chat through handle().
+"""
 import logging
 
 from sqlalchemy.orm import Session
@@ -23,7 +28,7 @@ def welcome(user: User) -> str:
     s = get_settings()
     first = (user.name or "").split(" ")[0]
     return (
-        f"Hi{' ' + first if first else ''}, I'm {user.assistant_name or s.app_name}, your personal AI agent on WhatsApp.\n\n"
+        f"Hi{' ' + first if first else ''}, I'm {user.assistant_name or s.app_name}, your personal AI agent.\n\n"
         "I read your email and calendar, keep track of what you've promised and what you're owed, "
         "and each morning I text you the few things that need you, with replies ready to send.\n\n"
         "How I handle your data: everything is encrypted, I never send anything to someone new without your yes, "
@@ -52,12 +57,37 @@ def handle(session: Session, user: User, text: str) -> str | None:
         return "No problem. Whenever you're ready, reply *YES* to agree to the terms and get started."
 
     if state == "awaiting_connect":
+        if user.channel == "app":
+            return ("Connect Gmail and Google Calendar from the setup screen so I can find what you've promised, "
+                    "or tap *Skip for now* to start without them.")
         return "I'm still waiting for Google access. Here's a fresh link:\n" + google.start_url(session, user.id)
 
     if state == "syncing":
         return "I'm reading through your last few weeks of email now. I'll text you what I find in a few minutes."
 
     return None
+
+
+def accept_terms(session: Session, user: User) -> None:
+    """In-app consent screen."""
+    session.add(Consent(user_id=user.id, scope="terms", granted=True))
+    audit(session, user.id, "consent", "terms", actor="user")
+    if user.onboarding_state in ("new", "awaiting_consent"):
+        user.onboarding_state = "awaiting_connect"
+
+
+def skip_connect(session: Session, user: User) -> None:
+    """Start without Gmail and Calendar: chat, memory, goals, standing tasks and web errands still work."""
+    if user.onboarding_state != "awaiting_connect":
+        return
+    user.onboarding_state = "active"
+    audit(session, user.id, "connect_skipped", "", actor="user")
+    first = (user.name or "").split(" ")[0]
+    send(session, user, (
+        f"Welcome{' ' + first if first else ''}. I'm {user.assistant_name}. Even without your email I can track goals, "
+        "remember what matters to you, keep an eye on prices and appointment slots, research and compare options, "
+        "and remind you of things. Connect Google any time in Settings and I'll start finding what you've promised "
+        "and what you're owed.\n\nWhat's the one thing you'd like off your plate this week?"))
 
 
 def connect_message(session: Session, user: User) -> str:
@@ -95,7 +125,7 @@ def after_connect(session: Session, user: User, llm: LLM) -> None:
         "Three quick questions so I get your priorities right: who matters most to you right now, "
         "what are you working on this month, and is there anything I must never do? "
         f"I'll send your brief every day at {user.brief_hour:02d}:00 (say *brief at 7* to change it). "
-        "You can also give me a name (*call yourself Pumpkin*), set goals, ask me to keep an eye on things for you, "
-        f"or use the web app: {get_settings().base_url.rstrip('/')}/app",
+        "You can also give me a name (*call yourself Pumpkin*), set goals, or ask me to keep an eye on things for you"
+        + ("." if user.channel == "app" else f", or use the web app: {get_settings().base_url.rstrip('/')}/app"),
     )
     brief.mark_sent(user)

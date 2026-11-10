@@ -1,4 +1,5 @@
-"""HTTP surface: WhatsApp webhook, Google OAuth, privacy page, health, and a dev simulator."""
+"""HTTP surface: the app API, Google OAuth, privacy page, health, the optional WhatsApp webhook,
+and a dev simulator."""
 import logging
 import threading
 from collections import defaultdict
@@ -16,13 +17,14 @@ from app.agent import onboarding
 from app.agent.router import handle_inbound
 from app.channels import ConsoleChannel, InboundMessage, get_channel
 from app.channels.whatsapp import parse_webhook, verify_signature
-from app.config import get_settings, missing_config
+from app.config import get_settings, missing_config, whatsapp_enabled
 from app.db import init_db, session_scope, utcnow
 from app.integrations import google
 from app.llm import get_llm
 from app.models import OAuthState, User
 from app.util import aware, normalize_phone
 from app.web import api as web_api
+from app.web import app_api
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("app")
@@ -47,23 +49,24 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="Assistant", docs_url=None, redoc_url=None, lifespan=lifespan)
 app.include_router(web_api.router)
+app.include_router(app_api.router)
+if get_settings().cors_origins:
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in get_settings().cors_origins.split(",") if o.strip()],
+                       allow_methods=["*"], allow_headers=["*"], allow_credentials=False)
 STATIC = Path(__file__).parent / "web" / "static"
 
 
 def _static_page(name: str) -> str:
     s = get_settings()
     html = (STATIC / name).read_text(encoding="utf-8").replace("{{APP_NAME}}", escape(s.app_name))
-    demo = '<a class="btn {cls}" href="/app#try">Try the live demo</a>'
-    if s.public_whatsapp_number:
-        num = "".join(ch for ch in s.public_whatsapp_number if ch.isdigit())
-        cta = f'<a class="btn primary" href="https://wa.me/{num}?text=hi">Message {escape(s.app_name)} on WhatsApp</a>'
-        if s.demo_enabled:
-            cta += demo.format(cls="quiet")
-    elif s.demo_enabled:
-        cta = demo.format(cls="primary") + '<a class="btn quiet" href="/app">Sign in</a>'
-    else:
-        cta = '<a class="btn primary" href="/app">Get started</a>'
-    return html.replace("{{WA_CTA}}", cta)
+    cta = '<a class="btn primary" href="/app">Get started</a>'
+    if s.android_app_url:
+        cta += f'<a class="btn quiet" href="{escape(s.android_app_url)}">Get the Android app</a>'
+    if s.demo_enabled:
+        cta += '<a class="btn quiet" href="/app#try">Try the live demo</a>'
+    return html.replace("{{WA_CTA}}", cta).replace("{{ANDROID_URL}}", escape(s.android_app_url))
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -98,6 +101,8 @@ def setup_status() -> dict:
 
 @app.get("/webhooks/whatsapp")
 def whatsapp_verify(request: Request):
+    if not whatsapp_enabled():
+        raise HTTPException(status_code=404, detail="WhatsApp is not enabled on this server")
     p = request.query_params
     if p.get("hub.mode") == "subscribe" and p.get("hub.verify_token") == get_settings().whatsapp_verify_token:
         return PlainTextResponse(p.get("hub.challenge", ""))
@@ -106,6 +111,8 @@ def whatsapp_verify(request: Request):
 
 @app.post("/webhooks/whatsapp")
 async def whatsapp_inbound(request: Request, background: BackgroundTasks):
+    if not whatsapp_enabled():
+        raise HTTPException(status_code=404, detail="WhatsApp is not enabled on this server")
     raw = await request.body()
     if not verify_signature(raw, request.headers.get("x-hub-signature-256"), get_settings().whatsapp_app_secret):
         raise HTTPException(status_code=401, detail="bad signature")
@@ -135,23 +142,39 @@ def connect_google(s: str):
     with session_scope() as session:
         state = session.scalar(select(OAuthState).where(OAuthState.token == s))
         if not state or state.used or utcnow() - aware(state.created_at) > timedelta(hours=24):
-            return HTMLResponse(_page("This link has expired", "Send any message to your assistant on WhatsApp to get a new one."), 400)
+            return HTMLResponse(_page("This link has expired", "Open the app and tap Connect Google again for a fresh link."), 400)
     return RedirectResponse(google.consent_url(s))
 
 
 @app.get("/oauth/google/callback")
 def google_callback(background: BackgroundTasks, state: str = "", code: str = "", error: str = ""):
-    if error:
-        return HTMLResponse(_page("Not connected", "Google access wasn't granted. You can try again from WhatsApp."), 400)
     with session_scope() as session:
         st = session.scalar(select(OAuthState).where(OAuthState.token == state))
+        return_to = (st.return_to if st else None) or "chat"
+        if error:
+            return HTMLResponse(_done_page("Not connected", "Google access wasn't granted. You can try again any time.",
+                                           return_to, ok=False), 400)
         if not st or st.used:
-            return HTMLResponse(_page("This link has expired", "Ask your assistant for a new link."), 400)
+            return HTMLResponse(_done_page("This link has expired", "Tap Connect Google again for a fresh link.",
+                                           return_to, ok=False), 400)
         st.used = True
         user_id = st.user_id
         google.exchange_code(session, user_id, code)
     background.add_task(_after_connect, user_id)
-    return HTMLResponse(_page("You're connected", "Head back to WhatsApp. I'll text you what I find in a few minutes."))
+    return HTMLResponse(_done_page("You're connected", "I'm reading the last few weeks now. "
+                                   "I'll message you what I find in a few minutes.", return_to))
+
+
+def _done_page(title: str, body: str, return_to: str, ok: bool = True) -> str:
+    """After Google: back into the Android app (deep link), the web app, or plain text for chat users."""
+    s = get_settings()
+    if return_to == "app":
+        link = f"{s.app_scheme}://connected?ok={'1' if ok else '0'}"
+        return _page(title, f"<p>{escape(body)}</p><p><a href=\"{escape(link)}\">Return to the app</a></p>"
+                     f"<script>location.replace({link!r})</script>")
+    if return_to == "web":
+        return _page(title, f'<p>{escape(body)}</p><p><a href="/app">Back to {escape(s.app_name)}</a></p>')
+    return _page(title, body)
 
 
 def _after_connect(user_id: int) -> None:
@@ -180,9 +203,11 @@ h1{{font-size:24px}} h2{{font-size:18px;margin-top:28px}}</style></head>
 def privacy():
     s = get_settings()
     body = f"""
-<p>{escape(s.app_name)} is a personal assistant you reach over WhatsApp. This page explains what it does with your data.</p>
+<p>{escape(s.app_name)} is a personal assistant you use in its Android app and web app. This page explains what it does
+with your data.</p>
 <h2>What we access</h2><p>With your permission: your Gmail (read, and send only messages you approve) and Google Calendar
-(read, and create events you approve). Your WhatsApp messages to the assistant. We do not read your other WhatsApp chats.</p>
+(read, and create events you approve). What you tell the assistant in the app, including photos, files and voice notes
+you send it. Your email address or phone number, to sign you in. A push token, so we can notify your phone.</p>
 <h2>What we keep</h2><p>Raw email and calendar text is encrypted with a key unique to you and deleted after
 {s.raw_retention_days} days. We keep structured notes: people you deal with, open commitments, and preferences you state.
 You can see them any time ("what do you know") and delete them ("forget &lt;name&gt;", "delete everything").</p>
@@ -191,8 +216,8 @@ yes. See your saved logins (only the secure browser types them in) or handle car
 Use your data to improve the product unless you opt in under Settings.</p>
 <h2>The secure computer</h2><p>Web tasks you approve run in an isolated browser on our servers. Every request it makes is
 checked by an independent reviewer (Sentinel) that blocks internal addresses and anything you didn't ask for.</p>
-<h2>Who processes it</h2><p>Hosting provider, Meta (WhatsApp delivery), Google (your account), Anthropic (Claude, the AI model,
-under API terms that do not use your data for training).</p>
+<h2>Who processes it</h2><p>Hosting provider, Google (your account), Anthropic (Claude, the AI model, under API terms that
+do not use your data for training), Expo (push notification delivery), and our email and SMS providers (sign-in codes).</p>
 <h2>Your rights</h2><p>Access, correction, deletion and withdrawal of consent, from chat or by writing to the operator.
 These apply under GDPR, CCPA/CPRA, India's DPDP Act and similar laws.</p>"""
     return _page("Privacy and terms", body)

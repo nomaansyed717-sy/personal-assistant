@@ -147,11 +147,16 @@ def test_webhook_verification_and_signature(monkeypatch, channel, fake_llm):
 
     from app.config import get_settings
 
+    client = TestClient(app)
+    # WhatsApp is an optional legacy channel: off unless its credentials are set.
+    assert client.get("/webhooks/whatsapp", params={"hub.mode": "subscribe"}).status_code == 404
+
+    monkeypatch.setenv("WHATSAPP_TOKEN", "tok")
+    monkeypatch.setenv("WHATSAPP_PHONE_NUMBER_ID", "pnid")
     monkeypatch.setenv("WHATSAPP_VERIFY_TOKEN", "vt")
     monkeypatch.setenv("WHATSAPP_APP_SECRET", "appsecret")
     monkeypatch.setenv("ENV", "prod")
     get_settings.cache_clear()
-    client = TestClient(app)
 
     r = client.get("/webhooks/whatsapp", params={"hub.mode": "subscribe", "hub.verify_token": "vt", "hub.challenge": "42"})
     assert r.status_code == 200 and r.text == "42"

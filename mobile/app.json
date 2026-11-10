@@ -1,0 +1,96 @@
+{
+  "expo": {
+    "name": "Aide",
+    "slug": "aide",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "aide",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "app.aide.assistant",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "app.aide.assistant",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#0E3B43",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.CAMERA"
+      ],
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "scheme": "aide"
+            }
+          ]
+        }
+      ]
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0E3B43",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#E8A33D"
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Aide uses the microphone when you record a voice note."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Aide uses your photos when you choose one to send.",
+          "cameraPermission": "Aide uses the camera when you take a photo to send."
+        }
+      ],
+      "expo-secure-store",
+      "expo-localization",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": false,
+      "reactCompiler": true
+    },
+    "description": "Your personal AI chief of staff. Built in India, for the world.",
+    "extra": {
+      "apiUrl": "https://your-app.onrender.com",
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}

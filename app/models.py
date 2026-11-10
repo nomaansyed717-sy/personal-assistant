@@ -30,9 +30,13 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    phone: Mapped[str] = mapped_column(String(32), unique=True, index=True)  # E.164, e.g. +919876543210
+    # E.164, e.g. +919876543210. Optional: app users can sign up with email alone.
+    phone: Mapped[str | None] = mapped_column(String(32), unique=True, index=True, nullable=True)
     name: Mapped[str | None] = mapped_column(String(120))
-    email: Mapped[str | None] = mapped_column(String(255))
+    email: Mapped[str | None] = mapped_column(String(255), index=True)  # sign-in email, lowercased
+    # Where proactive messages go: app (in-app inbox + push, the default for new sign-ups) | whatsapp (legacy)
+    channel: Mapped[str] = mapped_column(String(16), default="whatsapp")
+    push_previews: Mapped[bool] = mapped_column(Boolean, default=True)  # show message text on the lock screen
     timezone: Mapped[str] = mapped_column(String(64), default="UTC")
     language: Mapped[str | None] = mapped_column(String(32))
     # new -> awaiting_consent -> awaiting_connect -> syncing -> active
@@ -251,6 +255,7 @@ class OAuthState(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
     used: Mapped[bool] = mapped_column(Boolean, default=False)
+    return_to: Mapped[str | None] = mapped_column(String(16))  # app | web | chat: where to send the user afterwards
 
 
 class Memory(Base):
@@ -354,7 +359,7 @@ class Subscription(Base):
 
 
 class LoginCode(Base):
-    """One-time codes sent over WhatsApp to sign in to the web app."""
+    """One-time sign-in codes, sent by email, SMS or (legacy) WhatsApp."""
 
     __tablename__ = "login_codes"
 
@@ -374,3 +379,16 @@ class WebSession(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     expires_at: Mapped[datetime] = mapped_column(TS)
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+
+class Device(Base):
+    """A phone or browser that receives push notifications (Expo push tokens)."""
+
+    __tablename__ = "devices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    push_token: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    platform: Mapped[str] = mapped_column(String(16), default="android")  # android | ios | web
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(TS, default=utcnow)

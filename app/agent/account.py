@@ -30,6 +30,11 @@ LABELS = {
     "skill_created": "New skill",
     "vault_added": "Saved login",
     "forgot": "Forgot",
+    "consent": "You agreed to",
+    "connect_skipped": "Started without Google",
+    "disconnected": "Disconnected",
+    "loop_done": "Marked done",
+    "loop_snoozed": "Snoozed",
 }
 
 
@@ -134,6 +139,20 @@ def delete_everything(session: Session, user: User) -> None:
         revoke(conn)
     session.flush()
     session.delete(user)  # cascades to every table
+
+
+def purge_unverified(session: Session, days: int = 2) -> int:
+    """App sign-ups that never entered their code: nothing was stored for them, so drop the empty row."""
+    from app.models import LoginCode
+
+    stale = session.scalars(select(User).where(User.onboarding_state == "new", User.channel == "app",
+                                               User.created_at < utcnow() - timedelta(days=days))).all()
+    n = 0
+    for u in stale:
+        if not session.scalar(select(LoginCode.id).where(LoginCode.user_id == u.id, LoginCode.used.is_(True)).limit(1)):
+            session.delete(u)
+            n += 1
+    return n
 
 
 def purge_raw(session: Session, retention_days: int) -> int:

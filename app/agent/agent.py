@@ -147,9 +147,13 @@ def respond(session: Session, user: User, text: str, llm: LLM, attachments: list
     history = recent_history(session, user, limit=12)
     # recent_history already contains the message we just recorded as the last user turn.
     messages = _to_messages(history) or [{"role": "user", "content": text}]
+    last = messages[-1]
     if attachments:
-        last = messages[-1]
         last["content"] = [*attachments, {"type": "text", "text": text}]
+    elif last["role"] == "user" and isinstance(last["content"], str) and text and text not in last["content"]:
+        # What we stored is what the user saw (a caption); the model also needs the full text,
+        # e.g. the contents of a text file sent with that caption.
+        last["content"] += "\n\n" + text
     reply, ctx = _loop(session, user, _system(session, user), messages, llm)
     memory.learn_from_message(session, user, text, llm)
     return _with_proposals(reply, ctx) or "Done."
