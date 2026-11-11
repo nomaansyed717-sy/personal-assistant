@@ -1,0 +1,38 @@
+name: Android APK
+
+# Builds an installable APK of the Aide Android app (including the phone agent's native code) on every
+# change to mobile/, and attaches it to the run as "aide-android-apk". Download it from the run's
+# Summary page and install it on a phone. Set the repository variable AIDE_API_URL to your backend's URL.
+on:
+  push:
+    paths: ["mobile/**", ".github/workflows/android.yml"]
+  pull_request:
+    paths: ["mobile/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run: { working-directory: mobile }
+    env:
+      EXPO_PUBLIC_API_URL: ${{ vars.AIDE_API_URL || 'https://your-app.onrender.com' }}
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm, cache-dependency-path: mobile/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci
+      - run: npx expo prebuild --platform android --no-install
+      - name: Build release APK (signed with the debug key, for testing)
+        working-directory: mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aide-android-apk
+          path: mobile/android/app/build/outputs/apk/release/*.apk
+          retention-days: 14
