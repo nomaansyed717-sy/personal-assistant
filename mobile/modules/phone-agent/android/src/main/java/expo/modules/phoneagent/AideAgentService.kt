@@ -418,7 +418,7 @@ class AideAgentService : AccessibilityService() {
     setColor(color)
   }
 
-  private fun showOverlay(text: String, waiting: Boolean) {
+  private fun showOverlay(message: String, waiting: Boolean) {
     if (overlay == null) {
       val wm = getSystemService(WINDOW_SERVICE) as WindowManager
       val bar = LinearLayout(this).apply {
@@ -435,14 +435,14 @@ class AideAgentService : AccessibilityService() {
         maxWidth = (resources.displayMetrics.widthPixels * 0.55).toInt()
       }
       val resume = Button(this).apply {
-        text = "Resume"
+        setText("Resume")
         isAllCaps = false
         setTextColor(Color.parseColor("#2B1C02"))
         background = pill(Color.parseColor("#E8A33D"))
         setOnClickListener { resume() }
       }
       val stopBtn = Button(this).apply {
-        text = "Stop"
+        setText("Stop")
         isAllCaps = false
         setTextColor(Color.WHITE)
         background = pill(Color.parseColor("#B4483C"))
@@ -471,7 +471,7 @@ class AideAgentService : AccessibilityService() {
         Log.w(TAG, "overlay failed", e)
       }
     }
-    overlayText?.text = if (waiting) "Your turn: $text" else "Aide: $text"
+    overlayText?.text = if (waiting) "Your turn: $message" else "Aide: $message"
     resumeButton?.visibility = if (waiting) View.VISIBLE else View.GONE
   }
 
