@@ -33,6 +33,7 @@ export default function TabLayout() {
         }}>
         <Tabs.Screen name="index" options={{ title: 'Today', tabBarIcon: ({ color, size }) => <Ionicons name="sunny-outline" color={color as string} size={size} /> }} />
         <Tabs.Screen name="chat" options={{ title: 'Chat', tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-ellipses-outline" color={color as string} size={size} /> }} />
+        <Tabs.Screen name="agent" options={{ title: 'Do it', tabBarIcon: ({ color, size }) => <Ionicons name="flash-outline" color={color as string} size={size} /> }} />
         <Tabs.Screen
           name="approvals"
           options={{

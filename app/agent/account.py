@@ -35,6 +35,11 @@ LABELS = {
     "disconnected": "Disconnected",
     "loop_done": "Marked done",
     "loop_snoozed": "Snoozed",
+    "phone_task_queued": "Phone task",
+    "phone_task_waiting": "Handed over to you",
+    "phone_task_done": "Done on your phone",
+    "phone_task_failed": "Phone task stopped",
+    "phone_task_stopped": "You stopped a phone task",
 }
 
 

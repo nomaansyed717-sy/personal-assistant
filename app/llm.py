@@ -28,7 +28,8 @@ class LLMResponse:
 
 
 class LLM:
-    def extract(self, system: str, content: str, name: str, schema: dict, fast: bool = True) -> dict:
+    def extract(self, system: str, content: str | list, name: str, schema: dict, fast: bool = True) -> dict:
+        """content: text, or a list of content blocks (e.g. an image plus text)."""
         raise NotImplementedError
 
     def complete(self, system: str, messages: list[dict], tools: list[dict], max_tokens: int = 1500) -> LLMResponse:
@@ -51,7 +52,7 @@ class AnthropicLLM(LLM):
         # Cache the long, stable system prompt across calls.
         return [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
 
-    def extract(self, system: str, content: str, name: str, schema: dict, fast: bool = True) -> dict:
+    def extract(self, system: str, content: str | list, name: str, schema: dict, fast: bool = True) -> dict:
         resp = self.client.messages.create(
             model=self.fast if fast else self.smart,
             max_tokens=4000,

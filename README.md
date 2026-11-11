@@ -10,6 +10,7 @@ This repo is **Phases 0–1** of the product spec: the working core you can put 
 
 | Capability | How |
 | --- | --- |
+| **Does tasks in your phone's apps** | The "Do it" tab: "book a bus to Aurangabad on Friday night", "book an auto to the station". The Android app's phone agent opens the right app, searches, compares and fills everything in. It stops for you to sign in and before any payment, and never touches UPI, wallet or banking apps |
 | **Chat like messaging** | The Android app and the web app at `/app`. Sign in or sign up with a code sent by email or SMS |
 | **Gets to know you** | Long-term memory learned from chat, which you can view and delete (`what do you remember`, `forget …`, or the Memory page) |
 | **Your goals** | Track goals. Each evening it sends up to 3 concrete next steps (`no ideas` turns this off) |
@@ -139,8 +140,10 @@ app/
   vault.py              Encrypted logins, decrypted only inside the browser executor
   media.py              Photos, PDFs, text files and voice notes from the app
   migrate.py            Additive schema migrations on startup
+  phone_agent.py        The phone agent's brain: next step from the screen, login/OTP/payment hand-overs, safety checks
   web/                  Web app (static/app.html), homepage (static/landing.html), JSON API (api.py, app_api.py: code sign-in, onboarding, devices, uploads, Today)
-mobile/                 The Android app (Expo React Native): sign-in, setup, Today, Chat, Approvals, More
+mobile/                 The Android app (Expo React Native): sign-in, setup, Today, Chat, Do it, Approvals, More
+mobile/modules/phone-agent  Kotlin accessibility service that operates other apps for the phone agent
 tests/                  67 tests, including a real headless-browser run, the web app, app sign-in and push, Sentinel and the full onboarding flow
 scripts/chat.py         Terminal chat, with a --demo mailbox
 ```

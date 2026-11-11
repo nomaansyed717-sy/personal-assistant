@@ -150,7 +150,7 @@ export function Chip({ label, onPress }: { label: string; onPress: () => void })
   const t = useTheme();
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.chip, { borderColor: t.line, backgroundColor: t.card, opacity: pressed ? 0.7 : 1 }]}>
-      <Text style={{ color: t.text, fontSize: 14 }}>{label}</Text>
+      <Text style={{ color: t.text, fontSize: 14, flexShrink: 1 }}>{label}</Text>
     </Pressable>
   );
 }
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   label: { fontWeight: '600', fontSize: 14, marginBottom: 6 },
   input: { borderWidth: 1, borderRadius: radius.s, paddingHorizontal: 12, paddingVertical: 11, fontSize: 16 },
   empty: { borderWidth: 1, borderStyle: 'dashed', borderRadius: radius.s, padding: space.xl },
-  chip: { borderWidth: 1, borderRadius: radius.pill, paddingVertical: 7, paddingHorizontal: 12 },
+  chip: { borderWidth: 1, borderRadius: radius.l, paddingVertical: 7, paddingHorizontal: 12, maxWidth: '100%' },
   track: { width: 44, height: 26, borderRadius: 13, padding: 3 },
   knob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' },
 });

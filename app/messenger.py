@@ -41,7 +41,7 @@ def window_open(user: User) -> bool:
     return last is not None and utcnow() - last < WINDOW
 
 
-def send(session: Session, user: User, text: str) -> None:
+def send(session: Session, user: User, text: str, kind: str = "message") -> None:
     """Send now if the session window is open; otherwise queue it and ping with the reopen template."""
     if user.demo:  # live-demo accounts: keep the message for the web app, deliver nothing
         session.add(Message(user_id=user.id, direction="out", channel="demo", body_enc=encrypt(user.id, text)))
@@ -51,7 +51,7 @@ def send(session: Session, user: User, text: str) -> None:
         from app import push
 
         session.add(Message(user_id=user.id, direction="out", channel="app", body_enc=encrypt(user.id, text)))
-        push.notify(session, user, text)
+        push.notify(session, user, text, kind=kind)
         return
     channel = get_channel()
     if channel.has_session_window and not window_open(user):

@@ -392,3 +392,30 @@ class Device(Base):
     platform: Mapped[str] = mapped_column(String(16), default="android")  # android | ios | web
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+
+class PhoneJob(Base):
+    """A task the Android app carries out on the user's phone by operating other apps.
+
+    The phone reads the screen, the server decides the next step, the phone does it. The agent stops
+    and hands over to the user for logins, OTPs and payments.
+    """
+
+    __tablename__ = "phone_jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    action_id: Mapped[int | None] = mapped_column(ForeignKey("actions.id", ondelete="SET NULL"))
+    goal: Mapped[str] = mapped_column(Text)
+    app_hint: Mapped[str | None] = mapped_column(String(255))  # e.g. "redBus" or a package name
+    # queued -> running -> waiting_user (login / otp / payment / question) -> running ... -> done | failed | stopped
+    status: Mapped[str] = mapped_column(String(16), default="queued", index=True)
+    waiting_for: Mapped[str | None] = mapped_column(String(16))  # login | otp | payment | captcha | question | stuck
+    message: Mapped[str | None] = mapped_column(Text)  # what the user sees: progress, question, payment summary
+    steps: Mapped[list] = mapped_column(JSON, default=list)  # [{n, action, note, package}]
+    apps: Mapped[list] = mapped_column(JSON, default=list)  # launchable apps on the phone: [{label, package}]
+    last_package: Mapped[str | None] = mapped_column(String(255))
+    screen_hashes: Mapped[list] = mapped_column(JSON, default=list)
+    result: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow)

@@ -24,7 +24,7 @@ from app.llm import get_llm
 from app.models import OAuthState, User
 from app.util import aware, normalize_phone
 from app.web import api as web_api
-from app.web import app_api
+from app.web import app_api, phone_api
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("app")
@@ -50,6 +50,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Assistant", docs_url=None, redoc_url=None, lifespan=lifespan)
 app.include_router(web_api.router)
 app.include_router(app_api.router)
+app.include_router(phone_api.router)
 if get_settings().cors_origins:
     from fastapi.middleware.cors import CORSMiddleware
 

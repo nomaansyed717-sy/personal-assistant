@@ -133,15 +133,20 @@ TOOLS = [
     {
         "name": "propose_errand",
         "description": (
-            "Prepare a real-world errand for approval. browser_task = the secure computer's browser does a task on a "
-            "website (check availability, compare options, fill a form, book something up to the payment step); give "
-            "start_url when known. phone_call = call a business (not switched on yet)."
+            "Prepare a real-world errand for approval. phone_task = Aide's phone agent operates apps on the user's own "
+            "Android phone (book train, bus, flight, movie or event tickets, cabs and autos, hotels, food and grocery "
+            "orders, forms) in their signed-in apps, up to the payment step; the user signs in and pays themselves. "
+            "Prefer phone_task whenever the user wants something done in an app or on their phone; set app when known "
+            "(e.g. IRCTC, redBus, MakeMyTrip, Uber, Ola, Rapido, Swiggy, Zomato, BookMyShow). Put every detail in goal: "
+            "from, to, dates, times, passengers, budget, preferences. browser_task = the secure computer's browser does "
+            "a task on a website; give start_url when known. phone_call = call a business (not switched on yet)."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "kind": {"type": "string", "enum": ["phone_call", "browser_task"]},
+                "kind": {"type": "string", "enum": ["phone_task", "browser_task", "phone_call"]},
                 "goal": {"type": "string"},
+                "app": {"type": ["string", "null"], "description": "phone_task only: the app to use, if known"},
                 "start_url": {"type": ["string", "null"]},
                 "constraints": {"type": "string"},
             },
@@ -403,7 +408,14 @@ class ToolContext(ExtraTools):
         self.proposed.append(a)
         return self._proposal_result(a)
 
-    def t_propose_errand(self, kind, goal, constraints="", start_url=None) -> str:
+    def t_propose_errand(self, kind, goal, constraints="", start_url=None, app=None) -> str:
+        if kind == "phone_task":
+            full = goal + (f". {constraints}" if constraints else "")
+            payload = {"goal": full, "app": app}
+            preview = f"On your phone{' in ' + app if app else ''}: {full}\nI'll stop for you to sign in, and before any payment."
+            a = actions.propose(self.session, self.user, kind, payload, preview, "chat")
+            self.proposed.append(a)
+            return self._proposal_result(a)
         payload = {"goal": goal, "constraints": constraints, "start_url": start_url}
         label = "Call" if kind == "phone_call" else "Web task on the secure computer"
         preview = f"{label}: {goal}" + (f" ({constraints})" if constraints else "") + (f"\nStarting at {start_url}" if start_url else "")

@@ -41,7 +41,7 @@ function Navigator() {
     void registerPush();
     const sub = Notifications.addNotificationResponseReceivedListener(response => {
       const kind = response.notification.request.content.data?.kind;
-      router.push(kind === 'approval' ? '/approvals' : '/chat');
+      router.push(kind === 'approval' ? '/approvals' : kind === 'phone_task' ? '/agent' : '/chat');
     });
     return () => sub.remove();
   }, [ready, me?.demo]);

@@ -164,7 +164,7 @@ def execute(session: Session, user: User, action: Action, llm=None) -> str:
         audit(session, user.id, "blocked", f"{_label(action.kind)}: Sentinel: {verdict.reason}", actor="system")
         return f"Sentinel stopped this {_label(action.kind)}: {verdict.reason}. Nothing was sent"
     try:
-        if user.demo and action.kind in ("browser_task", "phone_call"):
+        if user.demo and action.kind in ("browser_task", "phone_call", "phone_task"):
             from app.demo import simulated_result
 
             result = simulated_result(action)

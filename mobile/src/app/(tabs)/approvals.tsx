@@ -4,17 +4,20 @@ import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 
 import { Button, Empty, ErrorText, Rich, Row, Screen, Title, when } from '@/components/ui';
 import { api, type Approval } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { useBadge } from '@/lib/badge';
+import { startQueued } from '@/lib/phone';
 import { radius, space, useTheme } from '@/lib/theme';
 
 const KIND: Record<string, string> = {
   send_email: 'Email, ready to send', reply_email: 'Reply, ready to send', create_event: 'Calendar hold',
   purchase: 'Purchase, you do the checkout', browser_task: 'Web task on the secure browser', phone_call: 'Phone call',
+  phone_task: 'Task on your phone, up to payment',
   send_message: 'Message, ready to send', note: 'Reminder to close the loop',
 };
 const FIELDS: [string, string][] = [
   ['to', 'To'], ['cc', 'Cc'], ['subject', 'Subject'], ['body', 'Message'], ['title', 'Title'], ['start', 'Starts'], ['end', 'Ends'],
-  ['attendees', 'Guests'], ['item', 'Item'], ['price', 'Price'], ['merchant', 'Store'], ['url', 'Link'], ['goal', 'Goal'], ['start_url', 'Starts at'],
+  ['attendees', 'Guests'], ['item', 'Item'], ['price', 'Price'], ['merchant', 'Store'], ['url', 'Link'], ['goal', 'Goal'], ['app', 'App'], ['start_url', 'Starts at'],
 ];
 
 function details(p: Record<string, unknown>): [string, string][] {
@@ -28,6 +31,7 @@ function details(p: Record<string, unknown>): [string, string][] {
 export default function Approvals() {
   const t = useTheme();
   const badge = useBadge();
+  const { token } = useAuth();
   const [items, setItems] = useState<Approval[] | null>(null);
   const [results, setResults] = useState<Record<number, string>>({});
   const [open, setOpen] = useState<Record<number, boolean>>({});
@@ -46,6 +50,10 @@ export default function Approvals() {
     try {
       const r = await api<{ result: string }>(`/approvals/${a.id}/approve`, { method: 'POST' });
       setResults(x => ({ ...x, [a.id]: r.result }));
+      if (a.kind === 'phone_task') {
+        const job = await startQueued(token);
+        if (job) setResults(x => ({ ...x, [a.id]: 'Started on your phone. Follow it in the Do it tab.' }));
+      }
     } catch (e) { setResults(x => ({ ...x, [a.id]: (e as Error).message })); }
     void badge.refresh();
   };
