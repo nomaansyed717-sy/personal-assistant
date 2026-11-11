@@ -141,10 +141,11 @@ app/
   media.py              Photos, PDFs, text files and voice notes from the app
   migrate.py            Additive schema migrations on startup
   phone_agent.py        The phone agent's brain: next step from the screen, login/OTP/payment hand-overs, safety checks
+  web/phone_api.py      /api/phone: queue a task, the phone asks for each step, reports hand-overs and stops
   web/                  Web app (static/app.html), homepage (static/landing.html), JSON API (api.py, app_api.py: code sign-in, onboarding, devices, uploads, Today)
 mobile/                 The Android app (Expo React Native): sign-in, setup, Today, Chat, Do it, Approvals, More
 mobile/modules/phone-agent  Kotlin accessibility service that operates other apps for the phone agent
-tests/                  67 tests, including a real headless-browser run, the web app, app sign-in and push, Sentinel and the full onboarding flow
+tests/                  73 tests, including a real headless-browser run, the web app, app sign-in and push, the phone agent, Sentinel and the full onboarding flow
 scripts/chat.py         Terminal chat, with a --demo mailbox
 ```
 
