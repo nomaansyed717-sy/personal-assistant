@@ -1,3 +1,4 @@
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
 import * as Notifications from 'expo-notifications';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -9,7 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Loading } from '@/components/ui';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { registerPush } from '@/lib/push';
-import { useTheme } from '@/lib/theme';
+import { fonts, useTheme } from '@/lib/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -24,7 +25,9 @@ export default function RootLayout() {
 }
 
 function Navigator() {
-  const { loading, token, me } = useAuth();
+  const { loading: authLoading, token, me } = useAuth();
+  const [fontsLoaded, fontError] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold });
+  const loading = authLoading || (!fontsLoaded && !fontError);
   const scheme = useColorScheme();
   const t = useTheme();
   const signedIn = !!token && !!me;
@@ -50,7 +53,13 @@ function Navigator() {
 
   const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
   const navTheme = { ...base, colors: { ...base.colors, background: t.bg, card: t.card, text: t.text, border: t.line, primary: t.ink2 } };
-  const header = { headerStyle: { backgroundColor: t.card }, headerTintColor: t.text, headerShadowVisible: false, headerBackTitle: 'Back' };
+  const header = {
+    headerStyle: { backgroundColor: t.bg },
+    headerTintColor: t.text,
+    headerShadowVisible: false,
+    headerBackTitle: 'Back',
+    headerTitleStyle: { fontFamily: fonts.semibold, fontSize: 17 },
+  };
 
   return (
     <ThemeProvider value={navTheme}>

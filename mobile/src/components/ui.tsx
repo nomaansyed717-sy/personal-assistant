@@ -4,17 +4,18 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
+  type RefreshControlProps,
   type TextInputProps,
   type TextStyle,
   type ViewStyle,
-  type RefreshControlProps,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { radius, space, useTheme } from '@/lib/theme';
+import { Text, TextInput } from '@/components/text';
+import { hairline, radius, space, useTheme } from '@/lib/theme';
+
+export { Text, TextInput };
 
 /** Scrollable screen with the app background and safe-area padding. */
 export function Screen({ children, refreshControl, edges = ['top'] as ('top' | 'bottom')[], scroll = true }: {
@@ -27,7 +28,8 @@ export function Screen({ children, refreshControl, edges = ['top'] as ('top' | '
   return (
     <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: t.bg }}>
       {scroll ? (
-        <ScrollView contentContainerStyle={styles.screen} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.screen} refreshControl={refreshControl} keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
           <View style={styles.column}>{children}</View>
         </ScrollView>
       ) : (
@@ -37,34 +39,48 @@ export function Screen({ children, refreshControl, edges = ['top'] as ('top' | '
   );
 }
 
-export function Title({ children, sub }: { children: ReactNode; sub?: string }) {
+export function Title({ children, sub, eyebrow }: { children: ReactNode; sub?: string; eyebrow?: string }) {
   const t = useTheme();
   return (
-    <View style={{ marginBottom: space.l }}>
+    <View style={{ marginBottom: space.xl, marginTop: space.s }}>
+      {eyebrow ? <Text style={[styles.eyebrow, { color: t.muted }]}>{eyebrow}</Text> : null}
       <Text style={[styles.title, { color: t.text }]}>{children}</Text>
-      {sub ? <Text style={{ color: t.muted, marginTop: 4, fontSize: 15, lineHeight: 21 }}>{sub}</Text> : null}
+      {sub ? <Text style={{ color: t.muted, marginTop: 8, fontSize: 15, lineHeight: 22 }}>{sub}</Text> : null}
     </View>
   );
 }
 
-export function Section({ children }: { children: ReactNode }) {
-  const t = useTheme();
-  return <Text style={[styles.section, { color: t.text }]}>{children}</Text>;
-}
-
-export function Card({ children, style, accent }: { children: ReactNode; style?: ViewStyle; accent?: boolean }) {
+export function Section({ children, action }: { children: ReactNode; action?: ReactNode }) {
   const t = useTheme();
   return (
-    <View style={[styles.card, { backgroundColor: accent ? t.marigoldSoft : t.card, borderColor: accent ? t.marigold : t.line }, style]}>
+    <View style={styles.sectionRow}>
+      <Text style={[styles.section, { color: t.muted }]}>{children}</Text>
+      {action}
+    </View>
+  );
+}
+
+export function Card({ children, style, accent, flat }: { children: ReactNode; style?: ViewStyle; accent?: boolean; flat?: boolean }) {
+  const t = useTheme();
+  return (
+    <View style={[
+      styles.card,
+      accent ? { backgroundColor: t.marigoldSoft, borderColor: 'transparent' }
+        : flat ? { backgroundColor: t.soft, borderColor: 'transparent' }
+          : { backgroundColor: t.card, borderColor: t.line },
+      style,
+    ]}>
       {children}
     </View>
   );
 }
 
-export function P({ children, muted, small, bold, style }: { children: ReactNode; muted?: boolean; small?: boolean; bold?: boolean; style?: TextStyle }) {
+export function P({ children, muted, small, bold, style, numberOfLines }: {
+  children: ReactNode; muted?: boolean; small?: boolean; bold?: boolean; style?: TextStyle; numberOfLines?: number;
+}) {
   const t = useTheme();
   return (
-    <Text style={[{ color: muted ? t.muted : t.text, fontSize: small ? 13 : 16, lineHeight: small ? 18 : 22, fontWeight: bold ? '600' : '400' }, style]}>
+    <Text numberOfLines={numberOfLines} style={[{ color: muted ? t.muted : t.text, fontSize: small ? 13 : 15.5, lineHeight: small ? 19 : 23, fontWeight: bold ? '600' : '400' }, style]}>
       {children}
     </Text>
   );
@@ -75,10 +91,10 @@ export function Rich({ text, color, style }: { text: string; color?: string; sty
   const t = useTheme();
   const parts = String(text).split(/(\*[^*\n]+\*|\b_[^_\n]+_\b)/g);
   return (
-    <Text style={[{ color: color || t.text, fontSize: 16, lineHeight: 22 }, style]}>
+    <Text style={[{ color: color || t.text, fontSize: 15.5, lineHeight: 23 }, style]}>
       {parts.map((p, i) =>
-        /^\*[^*\n]+\*$/.test(p) ? <Text key={i} style={{ fontWeight: '700' }}>{p.slice(1, -1)}</Text>
-          : /^_[^_\n]+_$/.test(p) ? <Text key={i} style={{ fontStyle: 'italic' }}>{p.slice(1, -1)}</Text>
+        /^\*[^*\n]+\*$/.test(p) ? <Text key={i} style={{ fontWeight: '600', color: color || t.text }}>{p.slice(1, -1)}</Text>
+          : /^_[^_\n]+_$/.test(p) ? <Text key={i} style={{ fontStyle: 'italic', color: color || t.text }}>{p.slice(1, -1)}</Text>
             : p,
       )}
     </Text>
@@ -88,7 +104,7 @@ export function Rich({ text, color, style }: { text: string; color?: string; sty
 export function Button({ title, onPress, kind = 'primary', disabled, busy, small, style }: {
   title: string;
   onPress: () => void | Promise<void>;
-  kind?: 'primary' | 'ghost' | 'warn' | 'accent';
+  kind?: 'primary' | 'ghost' | 'warn' | 'accent' | 'plain';
   disabled?: boolean;
   busy?: boolean;
   small?: boolean;
@@ -96,8 +112,8 @@ export function Button({ title, onPress, kind = 'primary', disabled, busy, small
 }) {
   const t = useTheme();
   const [running, setRunning] = useState(false);
-  const bg = { primary: t.ink, ghost: 'transparent', warn: t.rose, accent: t.marigold }[kind];
-  const fg = { primary: t.onInk, ghost: t.text, warn: '#fff', accent: '#2B1C02' }[kind];
+  const bg = { primary: t.ink, ghost: t.soft, warn: t.soft, accent: t.marigold, plain: 'transparent' }[kind];
+  const fg = { primary: t.onInk, ghost: t.text, warn: t.rose, accent: t.onAccent, plain: t.ink2 }[kind];
   const off = disabled || busy || running;
   return (
     <Pressable
@@ -111,23 +127,33 @@ export function Button({ title, onPress, kind = 'primary', disabled, busy, small
       style={({ pressed }) => [
         styles.button,
         small && styles.buttonSmall,
-        { backgroundColor: bg, borderColor: kind === 'ghost' ? t.line : bg, opacity: off ? 0.55 : pressed ? 0.85 : 1 },
+        { backgroundColor: bg, opacity: off ? 0.4 : pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
         style,
       ]}>
-      {busy || running ? <ActivityIndicator color={fg} /> : <Text style={{ color: fg, fontWeight: '600', fontSize: small ? 14 : 16 }}>{title}</Text>}
+      {busy || running ? <ActivityIndicator color={fg} /> : (
+        <Text style={{ color: fg, fontWeight: '600', fontSize: small ? 13.5 : 15.5, letterSpacing: -0.1 }}>{title}</Text>
+      )}
     </Pressable>
   );
 }
 
 export function Field({ label, ...props }: TextInputProps & { label?: string }) {
   const t = useTheme();
+  const [focused, setFocused] = useState(false);
   return (
     <View style={{ marginBottom: space.m }}>
-      {label ? <Text style={[styles.label, { color: t.text }]}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, { color: t.muted }]}>{label}</Text> : null}
       <TextInput
         placeholderTextColor={t.muted}
         {...props}
-        style={[styles.input, { color: t.text, backgroundColor: t.card, borderColor: t.line }, props.multiline && { minHeight: 90, textAlignVertical: 'top' }, props.style]}
+        onFocus={e => { setFocused(true); props.onFocus?.(e); }}
+        onBlur={e => { setFocused(false); props.onBlur?.(e); }}
+        style={[
+          styles.input,
+          { color: t.text, backgroundColor: focused ? t.card : t.soft, borderColor: focused ? t.text : 'transparent' },
+          props.multiline && { minHeight: 96, textAlignVertical: 'top' },
+          props.style,
+        ]}
       />
     </View>
   );
@@ -136,8 +162,8 @@ export function Field({ label, ...props }: TextInputProps & { label?: string }) 
 export function Empty({ children }: { children: ReactNode }) {
   const t = useTheme();
   return (
-    <View style={[styles.empty, { borderColor: t.line }]}>
-      <Text style={{ color: t.muted, textAlign: 'center', lineHeight: 21 }}>{children}</Text>
+    <View style={[styles.empty, { backgroundColor: t.soft }]}>
+      <Text style={{ color: t.muted, textAlign: 'center', lineHeight: 21, fontSize: 14 }}>{children}</Text>
     </View>
   );
 }
@@ -149,8 +175,8 @@ export function Row({ children, style }: { children: ReactNode; style?: ViewStyl
 export function Chip({ label, onPress }: { label: string; onPress: () => void }) {
   const t = useTheme();
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.chip, { borderColor: t.line, backgroundColor: t.card, opacity: pressed ? 0.7 : 1 }]}>
-      <Text style={{ color: t.text, fontSize: 14, flexShrink: 1 }}>{label}</Text>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.chip, { backgroundColor: t.soft, opacity: pressed ? 0.6 : 1 }]}>
+      <Text style={{ color: t.text, fontSize: 13.5, flexShrink: 1 }}>{label}</Text>
     </Pressable>
   );
 }
@@ -162,15 +188,26 @@ export function Toggle({ label, value, onChange, hint }: { label: string; value:
       accessibilityRole="switch"
       accessibilityState={{ checked: value }}
       onPress={() => onChange(!value)}
-      style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: space.s, gap: space.m }}>
-      <View style={[styles.track, { backgroundColor: value ? t.leaf : t.line }]}>
-        <View style={[styles.knob, { transform: [{ translateX: value ? 18 : 0 }] }]} />
-      </View>
+      style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: space.m, gap: space.m }}>
       <View style={{ flex: 1 }}>
         <Text style={{ color: t.text, fontSize: 15, fontWeight: '500' }}>{label}</Text>
-        {hint ? <Text style={{ color: t.muted, fontSize: 13 }}>{hint}</Text> : null}
+        {hint ? <Text style={{ color: t.muted, fontSize: 13, marginTop: 2 }}>{hint}</Text> : null}
+      </View>
+      <View style={[styles.track, { backgroundColor: value ? t.ink : t.soft }]}>
+        <View style={[styles.knob, { backgroundColor: value ? t.onInk : t.card, transform: [{ translateX: value ? 18 : 0 }] }]} />
       </View>
     </Pressable>
+  );
+}
+
+/** A small status pill: neutral, accent (needs you), good or bad. */
+export function Pill({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'accent' | 'good' | 'bad' }) {
+  const t = useTheme();
+  const c = { neutral: [t.soft, t.muted], accent: [t.marigoldSoft, t.ink2], good: [t.soft, t.leaf], bad: [t.soft, t.rose] }[tone];
+  return (
+    <View style={[styles.pill, { backgroundColor: c[0] }]}>
+      <Text style={{ color: c[1], fontSize: 11.5, fontWeight: '600', letterSpacing: 0.2 }}>{label}</Text>
+    </View>
   );
 }
 
@@ -178,7 +215,7 @@ export function Loading() {
   const t = useTheme();
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: t.bg }}>
-      <ActivityIndicator color={t.marigold} size="large" />
+      <ActivityIndicator color={t.text} />
     </View>
   );
 }
@@ -186,7 +223,7 @@ export function Loading() {
 export function ErrorText({ children }: { children: ReactNode }) {
   const t = useTheme();
   if (!children) return null;
-  return <Text style={{ color: t.rose, marginVertical: space.s }} accessibilityLiveRegion="polite">{children}</Text>;
+  return <Text style={{ color: t.rose, marginVertical: space.s, fontSize: 14 }} accessibilityLiveRegion="polite">{children}</Text>;
 }
 
 export const when = (iso?: string | null) =>
@@ -198,17 +235,20 @@ export const money = (n: number, cur: string) => {
 };
 
 const styles = StyleSheet.create({
-  screen: { padding: space.l, paddingBottom: space.xxl * 2 },
-  column: { width: '100%', maxWidth: 720, alignSelf: 'center' },
-  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.3 },
-  section: { fontSize: 17, fontWeight: '700', marginTop: space.xl, marginBottom: space.s },
-  card: { borderWidth: 1, borderRadius: radius.m, padding: space.l, marginBottom: space.s },
-  button: { borderRadius: radius.pill, paddingVertical: 13, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  buttonSmall: { paddingVertical: 8, paddingHorizontal: 14 },
-  label: { fontWeight: '600', fontSize: 14, marginBottom: 6 },
-  input: { borderWidth: 1, borderRadius: radius.s, paddingHorizontal: 12, paddingVertical: 11, fontSize: 16 },
-  empty: { borderWidth: 1, borderStyle: 'dashed', borderRadius: radius.s, padding: space.xl },
-  chip: { borderWidth: 1, borderRadius: radius.l, paddingVertical: 7, paddingHorizontal: 12, maxWidth: '100%' },
+  screen: { paddingHorizontal: 20, paddingTop: space.l, paddingBottom: space.xxl * 2 },
+  column: { width: '100%', maxWidth: 680, alignSelf: 'center' },
+  eyebrow: { fontSize: 13, fontWeight: '500', marginBottom: 6 },
+  title: { fontSize: 32, lineHeight: 38, fontWeight: '700', letterSpacing: -1 },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 28, marginBottom: 10 },
+  section: { fontSize: 12, fontWeight: '600', letterSpacing: 0.9, textTransform: 'uppercase' },
+  card: { borderWidth: hairline, borderRadius: radius.l, padding: 18, marginBottom: 10 },
+  button: { borderRadius: radius.pill, height: 50, paddingHorizontal: 22, alignItems: 'center', justifyContent: 'center' },
+  buttonSmall: { height: 36, paddingHorizontal: 14 },
+  label: { fontWeight: '500', fontSize: 13, marginBottom: 6 },
+  input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16 },
+  empty: { borderRadius: radius.l, paddingVertical: 28, paddingHorizontal: 20 },
+  chip: { borderRadius: radius.pill, paddingVertical: 8, paddingHorizontal: 14, maxWidth: '100%' },
   track: { width: 44, height: 26, borderRadius: 13, padding: 3 },
-  knob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' },
+  knob: { width: 20, height: 20, borderRadius: 10 },
+  pill: { borderRadius: radius.pill, paddingVertical: 3, paddingHorizontal: 9, alignSelf: 'flex-start' },
 });

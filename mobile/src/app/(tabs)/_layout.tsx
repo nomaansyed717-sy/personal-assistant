@@ -5,7 +5,12 @@ import { AppState } from 'react-native';
 
 import { api, type Approval } from '@/lib/api';
 import { BadgeContext } from '@/lib/badge';
-import { useTheme } from '@/lib/theme';
+import { fonts, useTheme } from '@/lib/theme';
+
+type Icon = keyof typeof Ionicons.glyphMap;
+const icon = (on: Icon, off: Icon) => ({ color, focused }: { color: unknown; focused: boolean }) => (
+  <Ionicons name={focused ? on : off} color={color as string} size={23} />
+);
 
 export default function TabLayout() {
   const t = useTheme();
@@ -26,23 +31,17 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: t.ink2,
+          tabBarActiveTintColor: t.text,
           tabBarInactiveTintColor: t.muted,
-          tabBarStyle: { backgroundColor: t.card, borderTopColor: t.line },
-          tabBarBadgeStyle: { backgroundColor: t.marigold, color: '#2B1C02', fontWeight: '700' },
+          tabBarStyle: { backgroundColor: t.bg, borderTopWidth: 0, elevation: 0, height: 64, paddingTop: 6 },
+          tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 11, marginBottom: 4 },
+          tabBarBadgeStyle: { backgroundColor: t.marigold, color: t.onAccent, fontFamily: fonts.semibold, fontSize: 10.5, minWidth: 17, height: 17, lineHeight: 15 },
         }}>
-        <Tabs.Screen name="index" options={{ title: 'Today', tabBarIcon: ({ color, size }) => <Ionicons name="sunny-outline" color={color as string} size={size} /> }} />
-        <Tabs.Screen name="chat" options={{ title: 'Chat', tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-ellipses-outline" color={color as string} size={size} /> }} />
-        <Tabs.Screen name="agent" options={{ title: 'Do it', tabBarIcon: ({ color, size }) => <Ionicons name="flash-outline" color={color as string} size={size} /> }} />
-        <Tabs.Screen
-          name="approvals"
-          options={{
-            title: 'Approvals',
-            tabBarBadge: count ? count : undefined,
-            tabBarIcon: ({ color, size }) => <Ionicons name="checkmark-done-outline" color={color as string} size={size} />,
-          }}
-        />
-        <Tabs.Screen name="more" options={{ title: 'More', tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" color={color as string} size={size} /> }} />
+        <Tabs.Screen name="index" options={{ title: 'Today', tabBarIcon: icon('sunny', 'sunny-outline') }} />
+        <Tabs.Screen name="chat" options={{ title: 'Chat', tabBarIcon: icon('chatbubble', 'chatbubble-outline') }} />
+        <Tabs.Screen name="agent" options={{ title: 'Do it', tabBarIcon: icon('flash', 'flash-outline') }} />
+        <Tabs.Screen name="approvals" options={{ title: 'Approvals', tabBarBadge: count ? count : undefined, tabBarIcon: icon('checkmark-circle', 'checkmark-circle-outline') }} />
+        <Tabs.Screen name="more" options={{ title: 'More', tabBarIcon: icon('ellipsis-horizontal-circle', 'ellipsis-horizontal-circle-outline') }} />
       </Tabs>
     </BadgeContext.Provider>
   );

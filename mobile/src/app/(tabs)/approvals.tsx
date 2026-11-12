@@ -1,8 +1,8 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
-import { Button, Empty, ErrorText, Rich, Row, Screen, Title, when } from '@/components/ui';
+import { Button, Empty, ErrorText, Pill, Rich, Row, Screen, Text, Title, when } from '@/components/ui';
 import { api, type Approval } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useBadge } from '@/lib/badge';
@@ -64,7 +64,7 @@ export default function Approvals() {
 
   return (
     <Screen refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
-      <Title sub="Nothing sensitive happens until you approve it.">Approvals</Title>
+      <Title sub="Nothing goes out, gets booked or gets paid until you say yes.">Approvals</Title>
       <ErrorText>{error}</ErrorText>
       {items && items.length === 0 ? (
         <Empty>Nothing waiting for you. When your assistant prepares an email, booking or purchase, it shows up here.</Empty>
@@ -74,38 +74,41 @@ export default function Approvals() {
         const done = results[a.id];
         return (
           <View key={a.id} style={[styles.slip, { backgroundColor: t.card, borderColor: t.line }]}>
-            <View style={[styles.stub, { backgroundColor: t.marigoldSoft, borderRightColor: t.marigold }]}>
-              <Text style={[styles.num, { color: t.text }]}>{a.number}</Text>
-            </View>
-            <View style={styles.main}>
-              <Text style={[styles.kind, { color: t.muted }]}>{KIND[a.kind] || 'Ready when you are'}</Text>
-              {a.tier >= 3 ? (
-                <Text style={[styles.kind, { color: t.rose }]}>
-                  {a.kind === 'purchase' ? 'Spends money: check the price and store' : 'New contact or real-world action: check carefully'}
-                </Text>
-              ) : null}
-              <Rich text={a.preview} style={{ marginVertical: space.s }} />
-              {rows.length ? (
-                <Pressable onPress={() => setOpen(o => ({ ...o, [a.id]: !o[a.id] }))} accessibilityRole="button">
-                  <Text style={{ color: t.ink2, fontWeight: '600', marginBottom: space.s }}>{open[a.id] ? 'Hide details' : 'See exactly what will happen'}</Text>
-                </Pressable>
-              ) : null}
-              {open[a.id] ? (
-                <View style={[styles.dl, { backgroundColor: t.bg }]}>
-                  {rows.map(([k, v]) => (
-                    <View key={k} style={{ marginBottom: 6 }}>
-                      <Text style={{ color: t.muted, fontSize: 12 }}>{k}</Text>
-                      <Text style={{ color: t.text }}>{v}</Text>
-                    </View>
-                  ))}
+            <Row style={{ justifyContent: 'space-between', marginBottom: space.m }}>
+              <Row>
+                <View style={[styles.num, { backgroundColor: t.marigoldSoft }]}>
+                  <Text style={{ color: t.ink2, fontWeight: '700', fontSize: 13 }}>{a.number}</Text>
                 </View>
-              ) : null}
+                <Text style={[styles.kind, { color: t.muted }]}>{KIND[a.kind] || 'Ready when you are'}</Text>
+              </Row>
+              {a.tier >= 3 ? <Pill label={a.kind === 'purchase' ? 'Spends money' : 'Check carefully'} tone="accent" /> : null}
+            </Row>
+            <Rich text={a.preview} />
+            {rows.length ? (
+              <Pressable onPress={() => setOpen(o => ({ ...o, [a.id]: !o[a.id] }))} accessibilityRole="button" style={{ marginTop: space.m }}>
+                <Text style={{ color: t.muted, fontWeight: '500', fontSize: 13.5 }}>{open[a.id] ? 'Hide details' : 'See exactly what will happen  ›'}</Text>
+              </Pressable>
+            ) : null}
+            {open[a.id] ? (
+              <View style={[styles.dl, { backgroundColor: t.soft }]}>
+                {rows.map(([k, v]) => (
+                  <View key={k} style={{ gap: 2 }}>
+                    <Text style={{ color: t.muted, fontSize: 12 }}>{k}</Text>
+                    <Text style={{ color: t.text, fontSize: 14.5 }}>{v}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            <View style={{ marginTop: space.l }}>
               {done ? (
-                <Rich text={done} style={{ fontSize: 14 }} color={t.leaf} />
+                <Row style={{ alignItems: 'flex-start' }}>
+                  <Text style={{ color: t.leaf, fontWeight: '700' }}>✓</Text>
+                  <Rich text={done} style={{ fontSize: 14, flex: 1 }} color={t.muted} />
+                </Row>
               ) : (
                 <Row>
-                  <Button small title="Approve" onPress={() => approve(a)} />
-                  <Button small kind="ghost" title="Skip" onPress={() => skip(a)} />
+                  <Button small title="Approve" onPress={() => approve(a)} style={{ flex: 1 }} />
+                  <Button small kind="ghost" title="Skip" onPress={() => skip(a)} style={{ flex: 1 }} />
                 </Row>
               )}
             </View>
@@ -117,10 +120,8 @@ export default function Approvals() {
 }
 
 const styles = StyleSheet.create({
-  slip: { flexDirection: 'row', borderWidth: 1, borderRadius: radius.s, overflow: 'hidden', marginBottom: space.m },
-  stub: { width: 64, alignItems: 'center', justifyContent: 'center', borderRightWidth: 2, borderStyle: 'dashed' },
-  num: { fontSize: 30, fontWeight: '700' },
-  main: { flex: 1, padding: space.l },
-  kind: { fontSize: 13, fontWeight: '600' },
-  dl: { borderRadius: radius.s, padding: space.m, marginBottom: space.m },
+  slip: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.l, padding: 18, marginBottom: space.m },
+  num: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  kind: { fontSize: 13, fontWeight: '500' },
+  dl: { borderRadius: radius.m, padding: 14, marginTop: space.m, gap: space.m },
 });

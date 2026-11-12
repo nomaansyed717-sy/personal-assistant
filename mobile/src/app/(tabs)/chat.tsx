@@ -4,10 +4,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Chip, Rich, when } from '@/components/ui';
+import { Chip, Rich, Text, TextInput } from '@/components/ui';
 import { api, upload, type ChatMessage, type UploadFile } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useBadge } from '@/lib/badge';
@@ -138,11 +138,11 @@ export default function Chat() {
   const renderItem = ({ item }: { item: Item }) => {
     const mine = item.from === 'me';
     return (
-      <View style={[styles.bubble, mine ? [styles.me, { backgroundColor: t.bubbleMe }] : [styles.them, { backgroundColor: t.card, borderColor: t.line }]]}>
+      <View style={[styles.bubble, mine ? [styles.me, { backgroundColor: t.bubbleMe }] : [styles.them, { backgroundColor: t.bubbleThem, borderColor: t.line }]]}>
         <Rich text={item.text} color={mine ? t.bubbleMeText : t.text} />
         {'at' in item && item.at ? (
-          <Text style={[styles.meta, { color: mine ? 'rgba(255,255,255,.7)' : t.muted }]}>
-            {when(item.at)}{item.channel === 'demo' ? ' · demo' : ''}
+          <Text style={[styles.meta, { color: mine ? t.bubbleMeText : t.muted, opacity: mine ? 0.6 : 1 }]}>
+            {new Date(item.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{item.channel === 'demo' ? ' · demo' : ''}
           </Text>
         ) : null}
       </View>
@@ -150,14 +150,18 @@ export default function Chat() {
   };
 
   const secs = Math.floor((rec.durationMillis || 0) / 1000);
+  const name = me?.assistant_name || 'Aide';
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.bg }}>
-      <View style={[styles.header, { borderBottomColor: t.line, backgroundColor: t.card }]}>
-        <View style={[styles.avatar, { backgroundColor: t.marigold }]}><Text style={styles.avatarText}>{(me?.assistant_name || 'A')[0]}</Text></View>
-        <View>
-          <Text style={{ color: t.text, fontWeight: '700', fontSize: 17 }}>{me?.assistant_name || 'Aide'}</Text>
-          <Text style={{ color: t.muted, fontSize: 12 }}>{busy ? busy : me?.demo ? 'Live demo · nothing is really sent' : 'Asks before anything important'}</Text>
+      <View style={styles.header}>
+        <View style={[styles.avatar, { backgroundColor: t.ink }]}>
+          <Text style={{ color: t.onInk, fontWeight: '700', fontSize: 16 }}>{name[0].toLowerCase()}</Text>
+          <View style={[styles.avatarDot, { backgroundColor: t.marigold, borderColor: t.bg }]} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: t.text, fontWeight: '600', fontSize: 16.5, letterSpacing: -0.3 }}>{name}</Text>
+          <Text style={{ color: busy ? t.ink2 : t.muted, fontSize: 12.5 }}>{busy ? busy : me?.demo ? 'Live demo · nothing is really sent' : 'Asks before anything important'}</Text>
         </View>
       </View>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
@@ -167,54 +171,66 @@ export default function Chat() {
           keyExtractor={m => String(m.id)}
           renderItem={renderItem}
           contentContainerStyle={styles.thread}
+          showsVerticalScrollIndicator={false}
           onContentSizeChange={() => list.current?.scrollToEnd({ animated: false })}
-          ListEmptyComponent={<Text style={{ color: t.muted, textAlign: 'center', marginTop: space.xxl }}>Say hello, or try a suggestion below.</Text>}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', marginTop: 80, gap: 6 }}>
+              <Text style={{ color: t.text, fontSize: 20, fontWeight: '600', letterSpacing: -0.4 }}>What can I take off your plate?</Text>
+              <Text style={{ color: t.muted }}>Ask anything, or try a suggestion below.</Text>
+            </View>
+          }
         />
         {msgs.length < 4 && !busy ? (
-          <View style={styles.suggest}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggest} style={{ flexGrow: 0 }}>
             {SUGGESTIONS.map(s => <Chip key={s} label={s} onPress={() => send(s)} />)}
-          </View>
+          </ScrollView>
         ) : null}
         {attachOpen ? (
-          <View style={styles.suggest}>
-            <Chip label="📷  Camera" onPress={() => pickPhoto(true)} />
-            <Chip label="🖼  Photo" onPress={() => pickPhoto(false)} />
-            <Chip label="📄  PDF or text file" onPress={pickFile} />
+          <View style={styles.attach}>
+            {([['camera-outline', 'Camera', () => pickPhoto(true)], ['image-outline', 'Photo', () => pickPhoto(false)], ['document-text-outline', 'File', pickFile]] as const).map(([ic, label, fn]) => (
+              <Pressable key={label} onPress={fn} style={({ pressed }) => [styles.attachBtn, { backgroundColor: t.soft, opacity: pressed ? 0.6 : 1 }]}>
+                <Ionicons name={ic} size={22} color={t.text} />
+                <Text style={{ color: t.text, fontSize: 12.5, fontWeight: '500' }}>{label}</Text>
+              </Pressable>
+            ))}
           </View>
         ) : null}
-        <View style={[styles.composer, { borderTopColor: t.line, backgroundColor: t.card }]}>
-          <Pressable accessibilityLabel="Attach a photo or file" onPress={() => setAttachOpen(o => !o)} style={[styles.icon, { borderColor: t.line }]}>
-            <Ionicons name={attachOpen ? 'close' : 'attach'} size={22} color={t.text} />
-          </Pressable>
-          {rec.isRecording ? (
-            <View style={[styles.input, styles.recording, { borderColor: t.rose }]}>
-              <View style={[styles.dot, { backgroundColor: t.rose }]} />
-              <Text style={{ color: t.text }}>Recording {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}. Tap stop to send.</Text>
-            </View>
-          ) : (
-            <TextInput
-              value={text}
-              onChangeText={setText}
-              placeholder="Message your assistant"
-              placeholderTextColor={t.muted}
-              multiline
-              style={[styles.input, { color: t.text, borderColor: t.line, backgroundColor: t.bg }]}
-              accessibilityLabel="Message"
-            />
-          )}
-          {text.trim() && !rec.isRecording ? (
-            <Pressable accessibilityLabel="Send" onPress={() => send()} disabled={!!busy} style={[styles.icon, { backgroundColor: t.ink, borderColor: t.ink, opacity: busy ? 0.5 : 1 }]}>
-              <Ionicons name="arrow-up" size={22} color="#fff" />
+        <View style={styles.composer}>
+          <View style={[styles.field, { backgroundColor: t.card, borderColor: rec.isRecording ? t.rose : t.line }]}>
+            <Pressable accessibilityLabel="Attach a photo or file" onPress={() => setAttachOpen(o => !o)} style={styles.inlineIcon} hitSlop={8}>
+              <Ionicons name={attachOpen ? 'close' : 'add'} size={24} color={t.muted} />
             </Pressable>
-          ) : (
-            <Pressable
-              accessibilityLabel={rec.isRecording ? 'Stop and send voice note' : 'Record a voice note'}
-              onPress={toggleRecording}
-              disabled={!!busy}
-              style={[styles.icon, { backgroundColor: rec.isRecording ? t.rose : t.ink, borderColor: rec.isRecording ? t.rose : t.ink }]}>
-              <Ionicons name={rec.isRecording ? 'stop' : 'mic'} size={22} color="#fff" />
-            </Pressable>
-          )}
+            {rec.isRecording ? (
+              <View style={styles.recording}>
+                <View style={[styles.dot, { backgroundColor: t.rose }]} />
+                <Text style={{ color: t.text, fontVariant: ['tabular-nums'] }}>{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</Text>
+                <Text style={{ color: t.muted }}>Tap stop to send</Text>
+              </View>
+            ) : (
+              <TextInput
+                value={text}
+                onChangeText={setText}
+                placeholder={`Message ${name}`}
+                placeholderTextColor={t.muted}
+                multiline
+                style={[styles.input, { color: t.text }]}
+                accessibilityLabel="Message"
+              />
+            )}
+            {text.trim() && !rec.isRecording ? (
+              <Pressable accessibilityLabel="Send" onPress={() => send()} disabled={!!busy} style={[styles.send, { backgroundColor: t.ink, opacity: busy ? 0.4 : 1 }]}>
+                <Ionicons name="arrow-up" size={20} color={t.onInk} />
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityLabel={rec.isRecording ? 'Stop and send voice note' : 'Record a voice note'}
+                onPress={toggleRecording}
+                disabled={!!busy}
+                style={[styles.send, { backgroundColor: rec.isRecording ? t.rose : t.soft }]}>
+                <Ionicons name={rec.isRecording ? 'stop' : 'mic-outline'} size={20} color={rec.isRecording ? '#FFFFFF' : t.text} />
+              </Pressable>
+            )}
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -222,18 +238,22 @@ export default function Chat() {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', gap: space.m, paddingHorizontal: space.l, paddingVertical: space.m, borderBottomWidth: 1 },
-  avatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#2B1C02', fontWeight: '700', fontSize: 17 },
-  thread: { padding: space.l, gap: space.s, flexGrow: 1, maxWidth: 760, width: '100%', alignSelf: 'center' },
-  bubble: { maxWidth: '86%', paddingVertical: 9, paddingHorizontal: 13, borderRadius: 18 },
-  me: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  them: { alignSelf: 'flex-start', borderWidth: 1, borderBottomLeftRadius: 4 },
-  meta: { fontSize: 11, marginTop: 3 },
-  suggest: { flexDirection: 'row', flexWrap: 'wrap', gap: space.s, paddingHorizontal: space.l, paddingBottom: space.s },
-  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: space.s, padding: space.s, borderTopWidth: 1 },
-  icon: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  input: { flex: 1, minHeight: 44, maxHeight: 140, borderWidth: 1, borderRadius: radius.l, paddingHorizontal: 14, paddingTop: 11, paddingBottom: 11, fontSize: 16 },
-  recording: { flexDirection: 'row', alignItems: 'center', gap: space.s },
-  dot: { width: 10, height: 10, borderRadius: 5 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space.m, paddingHorizontal: 20, paddingVertical: space.m },
+  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  avatarDot: { position: 'absolute', right: -1, bottom: -1, width: 13, height: 13, borderRadius: 7, borderWidth: 2 },
+  thread: { paddingHorizontal: 16, paddingVertical: space.m, gap: 6, flexGrow: 1, maxWidth: 760, width: '100%', alignSelf: 'center' },
+  bubble: { maxWidth: '84%', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 20 },
+  me: { alignSelf: 'flex-end', borderBottomRightRadius: 6 },
+  them: { alignSelf: 'flex-start', borderWidth: StyleSheet.hairlineWidth, borderBottomLeftRadius: 6 },
+  meta: { fontSize: 11, marginTop: 4 },
+  suggest: { gap: space.s, paddingHorizontal: 16, paddingVertical: space.s, alignItems: 'center' },
+  attach: { flexDirection: 'row', gap: space.s, paddingHorizontal: 16, paddingBottom: space.s },
+  attachBtn: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 14, borderRadius: radius.m },
+  composer: { paddingHorizontal: 12, paddingTop: 4, paddingBottom: 10 },
+  field: { flexDirection: 'row', alignItems: 'flex-end', borderWidth: StyleSheet.hairlineWidth, borderRadius: 26, padding: 5, gap: 4 },
+  inlineIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  input: { flex: 1, minHeight: 40, maxHeight: 140, paddingHorizontal: 4, paddingTop: 10, paddingBottom: 10, fontSize: 16 },
+  send: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  recording: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: space.s, minHeight: 40 },
+  dot: { width: 9, height: 9, borderRadius: 5 },
 });

@@ -1,8 +1,8 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
-import { Button, Card, Empty, ErrorText, Field, P, Rich, Screen, Section, when } from '@/components/ui';
+import { Button, Card, Empty, ErrorText, Field, P, Rich, Screen, Section, Text, when } from '@/components/ui';
 import { api, type StandingTask } from '@/lib/api';
 import { radius, space, useTheme } from '@/lib/theme';
 
@@ -52,12 +52,12 @@ export default function Tasks() {
       <Section>New standing task</Section>
       <Field label="Name" value={title} onChangeText={setTitle} placeholder="Watch the price of the Kindle Paperwhite" />
       <Field label="What to do each time" value={instr} onChangeText={setInstr} multiline placeholder="Read https://… and tell me if the price is under ₹12,000" />
-      <Text style={{ color: t.text, fontWeight: '600', fontSize: 14, marginBottom: 6 }}>How often</Text>
+      <Text style={{ color: t.muted, fontWeight: '500', fontSize: 13, marginBottom: 8 }}>How often</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.s, marginBottom: space.m }}>
         {SCHEDULES.map(s => (
           <Pressable key={s.v} accessibilityRole="radio" accessibilityState={{ selected: sched === s.v }} onPress={() => setSched(s.v)}
-            style={{ borderWidth: 1, borderColor: sched === s.v ? t.ink : t.line, backgroundColor: sched === s.v ? t.ink : t.card, borderRadius: radius.pill, paddingVertical: 7, paddingHorizontal: 12 }}>
-            <Text style={{ color: sched === s.v ? '#fff' : t.text }}>{s.label}</Text>
+            style={{ backgroundColor: sched === s.v ? t.ink : t.soft, borderRadius: radius.pill, paddingVertical: 8, paddingHorizontal: 14 }}>
+            <Text style={{ color: sched === s.v ? t.onInk : t.text, fontSize: 13.5, fontWeight: '500' }}>{s.label}</Text>
           </Pressable>
         ))}
       </View>

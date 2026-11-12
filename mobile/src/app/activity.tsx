@@ -1,8 +1,8 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Empty, ErrorText, P, Screen, when } from '@/components/ui';
+import { Empty, ErrorText, P, Screen, Text, when } from '@/components/ui';
 import { api, type Activity } from '@/lib/api';
 import { radius, space, useTheme } from '@/lib/theme';
 
@@ -19,11 +19,11 @@ export default function ActivityScreen() {
   return (
     <Screen edges={[]}>
       <P muted style={{ marginBottom: space.m }}>Everything your assistant has done this week, and what it's about to do.</P>
-      <View style={[styles.tabs, { backgroundColor: t.card, borderColor: t.line }]} accessibilityRole="tablist">
+      <View style={[styles.tabs, { backgroundColor: t.soft }]} accessibilityRole="tablist">
         {(['planned', 'done'] as const).map(k => (
           <Pressable key={k} accessibilityRole="tab" accessibilityState={{ selected: tab === k }} onPress={() => setTab(k)}
-            style={[styles.tab, tab === k && { backgroundColor: t.ink }]}>
-            <Text style={{ color: tab === k ? '#fff' : t.text, fontWeight: '600' }}>{k === 'planned' ? 'Planned' : 'Done'}</Text>
+            style={[styles.tab, tab === k && { backgroundColor: t.card }]}>
+            <Text style={{ color: tab === k ? t.text : t.muted, fontWeight: '600', fontSize: 14 }}>{k === 'planned' ? 'Planned' : 'Done'}</Text>
           </Pressable>
         ))}
       </View>
@@ -54,7 +54,7 @@ function Item({ title, body, sub, color }: { title: string; body?: string; sub?:
 }
 
 const styles = StyleSheet.create({
-  tabs: { flexDirection: 'row', borderWidth: 1, borderRadius: radius.pill, padding: 3, marginBottom: space.l, alignSelf: 'flex-start' },
+  tabs: { flexDirection: 'row', borderRadius: radius.pill, padding: 4, marginBottom: space.l, alignSelf: 'flex-start' },
   tab: { paddingVertical: 7, paddingHorizontal: 18, borderRadius: radius.pill },
   item: { flexDirection: 'row' },
   dot: { width: 10, height: 10, borderRadius: 5, marginTop: 6, zIndex: 1 },
