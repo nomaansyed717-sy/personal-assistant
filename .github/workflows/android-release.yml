@@ -1,0 +1,79 @@
+name: Android release (Play Store)
+
+# Builds the Play Store bundle (.aab) and signs it with your upload key. Run it from the Actions tab
+# ("Run workflow") or push a tag such as android-v1.0.0.
+#
+# The Play Store build leaves out the phone agent: Google Play doesn't allow apps to use the accessibility
+# service to plan and carry out actions on their own. In this build, "Do it" runs errands on the web with the
+# secure browser instead. The full app with the phone agent stays a direct download (the Android APK workflow).
+#
+# Repository secrets it needs (Settings > Secrets and variables > Actions):
+#   ANDROID_UPLOAD_KEYSTORE_BASE64   the upload keystore (.jks), base64-encoded
+#   ANDROID_UPLOAD_KEYSTORE_PASSWORD, ANDROID_UPLOAD_KEY_ALIAS, ANDROID_UPLOAD_KEY_PASSWORD
+# See docs/play-store.md for how to make the key.
+on:
+  push:
+    tags: ["android-v*"]
+  workflow_dispatch:
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run: { working-directory: mobile }
+    env:
+      EXPO_PUBLIC_API_URL: ${{ vars.AIDE_API_URL || 'https://your-app.onrender.com' }}
+      EXPO_NO_TELEMETRY: "1"
+      HAS_KEY: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 != '' }}
+    steps:
+      - name: Check the upload key is set
+        if: env.HAS_KEY != 'true'
+        run: |
+          echo "::error::Add the ANDROID_UPLOAD_KEYSTORE_* secrets first (see docs/play-store.md)."
+          exit 1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm, cache-dependency-path: mobile/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci
+      - name: Leave out the phone agent (Play policy)
+        run: rm -rf modules/phone-agent/android modules/phone-agent/expo-module.config.json
+      - name: Version code from the run number, version name from the tag
+        run: |
+          node -e '
+            const fs = require("fs"); const j = JSON.parse(fs.readFileSync("app.json"));
+            j.expo.android.versionCode = 100 + Number(process.env.GITHUB_RUN_NUMBER);
+            const tag = (process.env.GITHUB_REF_NAME || "").replace(/^android-v/, "");
+            if (/^\d+\.\d+\.\d+$/.test(tag)) j.expo.version = tag;
+            fs.writeFileSync("app.json", JSON.stringify(j, null, 2));
+            console.log("versionCode", j.expo.android.versionCode, "version", j.expo.version);'
+      - run: npx expo prebuild --platform android --no-install
+      - name: Build and sign the bundle
+        working-directory: mobile/android
+        env:
+          KS_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          ./gradlew bundleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/upload.jks" \
+            -Pandroid.injected.signing.store.password="$KS_PASS" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASS"
+          rm -f "$RUNNER_TEMP/upload.jks"
+      - name: Check the bundle has no accessibility service
+        working-directory: mobile/android
+        run: |
+          if grep -rlq --include=AndroidManifest.xml BIND_ACCESSIBILITY_SERVICE app/build/intermediates/; then
+            echo "::error::The Play bundle declares an accessibility service"; exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aide-play-bundle
+          path: mobile/android/app/build/outputs/bundle/release/*.aab
+          retention-days: 30
