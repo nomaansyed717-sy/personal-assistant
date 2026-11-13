@@ -4,7 +4,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PLAYWRIGHT_BROWSERS_PATH=/ms-pl
 WORKDIR /srv
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
+# Playwright's bundled Node needs libatomic1, which python:3.12-slim doesn't ship.
+RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+ && pip install --no-cache-dir -r requirements.txt \
  && python -m playwright install --with-deps chromium \
  && rm -rf /var/lib/apt/lists/*
 
