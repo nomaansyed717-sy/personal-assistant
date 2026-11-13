@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, RefreshControl, StyleSheet, View } from 'react-native';
+import { AppState, Platform, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { Button, Card, Chip, Empty, ErrorText, P, Pill, Row, Screen, Section, Text, TextInput, Title, when } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -102,8 +102,17 @@ export default function Agent() {
         <Card flat style={{ marginTop: space.l }}><P small>The phone agent works in your own account on your Android phone. In the demo, ask in Chat and I’ll show what it would do.</P></Card>
       ) : !phoneAgentAvailable ? (
         <Card flat style={{ marginTop: space.l }}>
-          <P bold>Install the Android app to use this</P>
-          <P small muted style={{ marginTop: 4 }}>The phone agent runs inside Aide’s Android app. It isn’t available in a browser or in Expo Go.</P>
+          {Platform.OS === 'android' ? (
+            <>
+              <P bold>This version doesn’t include the phone agent</P>
+              <P small muted style={{ marginTop: 4 }}>It’s the version without the accessibility service, so it installs without being blocked. Install the full version to let Aide use your apps.</P>
+            </>
+          ) : (
+            <>
+              <P bold>Install the Android app to use this</P>
+              <P small muted style={{ marginTop: 4 }}>The phone agent runs inside Aide’s Android app. It isn’t available in a browser or in Expo Go.</P>
+            </>
+          )}
         </Card>
       ) : !enabled ? (
         <Card style={{ marginTop: space.l }}>
