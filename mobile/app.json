@@ -92,7 +92,7 @@
     },
     "description": "Your personal AI chief of staff. Built in India, for the world.",
     "extra": {
-      "apiUrl": "https://your-app.onrender.com",
+      "apiUrl": "https://aide-server-y2eu.onrender.com",
       "eas": {
         "projectId": ""
       }
