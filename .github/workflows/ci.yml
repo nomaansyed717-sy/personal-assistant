@@ -35,3 +35,17 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx expo export --platform web --output-dir /tmp/web  # bundles every screen
+
+  docker:
+    # The server image Render deploys. Building it here catches missing system libraries before a deploy fails.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t aide-server .
+      - name: Server starts and answers /health
+        run: |
+          docker run -d --name aide -p 8000:8000 \
+            -e MASTER_KEY=$(python3 -c "import base64,os;print(base64.urlsafe_b64encode(os.urandom(32)).decode())") \
+            -e DATABASE_URL=sqlite:////tmp/aide.db aide-server
+          for i in $(seq 1 30); do curl -fsS localhost:8000/health && exit 0; sleep 2; done
+          docker logs aide; exit 1
