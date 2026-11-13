@@ -99,11 +99,11 @@ export default function Agent() {
       </View>
 
       {me?.demo ? (
-        <Card flat style={{ marginTop: space.l }}><P small>The phone agent works in your own account on your Android phone. In the demo, ask in Chat and I'll show what it would do.</P></Card>
+        <Card flat style={{ marginTop: space.l }}><P small>The phone agent works in your own account on your Android phone. In the demo, ask in Chat and I’ll show what it would do.</P></Card>
       ) : !phoneAgentAvailable ? (
         <Card flat style={{ marginTop: space.l }}>
           <P bold>Install the Android app to use this</P>
-          <P small muted style={{ marginTop: 4 }}>The phone agent runs inside Aide's Android app. It isn't available in a browser or in Expo Go.</P>
+          <P small muted style={{ marginTop: 4 }}>The phone agent runs inside Aide’s Android app. It isn’t available in a browser or in Expo Go.</P>
         </Card>
       ) : !enabled ? (
         <Card style={{ marginTop: space.l }}>
@@ -111,7 +111,7 @@ export default function Agent() {
             <View style={[styles.iconWrap, { backgroundColor: t.marigoldSoft }]}><Ionicons name="phone-portrait-outline" size={20} color={t.ink2} /></View>
             <View style={{ flex: 1 }}>
               <P bold>Let Aide use your apps</P>
-              <P small muted>Uses Android's accessibility service, only while a task you started is running.</P>
+              <P small muted>Uses Android’s accessibility service, only while a task you started is running.</P>
             </View>
           </Row>
           <View style={{ gap: 10, marginBottom: space.m }}>
@@ -126,7 +126,7 @@ export default function Agent() {
             ))}
           </View>
           <Button title="Turn on in Settings" onPress={() => { PhoneAgent.openSettings(); }} />
-          <P small muted style={{ marginTop: space.s, textAlign: 'center' }}>Open "Aide phone agent" and switch it on.</P>
+          <P small muted style={{ marginTop: space.s, textAlign: 'center' }}>Open “Aide phone agent” and switch it on.</P>
         </Card>
       ) : null}
 
@@ -155,7 +155,7 @@ export default function Agent() {
       ) : null}
 
       <Section>Recent</Section>
-      {recent.length === 0 ? <Empty>Your tasks show up here, with what was done and what's waiting for you.</Empty> : (
+      {recent.length === 0 ? <Empty>Your tasks show up here, with what was done and what’s waiting for you.</Empty> : (
         <Card style={{ paddingVertical: 4 }}>
           {recent.map((j, i) => (
             <View key={j.id} style={[styles.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.line }]}>

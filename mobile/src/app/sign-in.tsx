@@ -56,7 +56,7 @@ export default function SignIn() {
             <Wordmark size={40} />
             <Text style={[styles.headline, { color: t.text }]}>Your chief of staff,{'\n'}in your pocket.</Text>
             <Text style={{ color: t.muted, fontSize: 15.5, lineHeight: 23 }}>
-              It keeps track of what you've promised, books what you ask for, and always asks before it pays or sends.
+              It keeps track of what you’ve promised, books what you ask for, and always asks before it pays or sends.
             </Text>
           </View>
 
@@ -86,7 +86,7 @@ export default function SignIn() {
               <ErrorText>{error}</ErrorText>
               <Button title="Continue" onPress={sendCode} disabled={ident.trim().length < 5} />
               <Text style={{ color: t.muted, fontSize: 13, textAlign: 'center', marginTop: space.m }}>
-                We'll send a one-time code. No password, ever.
+                We’ll send a one-time code. No password, ever.
               </Text>
             </View>
           ) : (

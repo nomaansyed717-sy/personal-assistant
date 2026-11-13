@@ -30,9 +30,10 @@ export async function registerPush(): Promise<string | null> {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Messages and approvals',
+        // eslint-disable-next-line import/namespace -- re-exported enum, the rule can't follow `export *`
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 200, 120, 200],
-        lightColor: '#E8A33D',
+        lightColor: '#F05A28',
       });
     }
     const existing = await Notifications.getPermissionsAsync();

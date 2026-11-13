@@ -200,6 +200,12 @@ h1{{font-size:24px}} h2{{font-size:18px;margin-top:28px}}</style></head>
 <body><h1>{escape(title)}</h1>{body if body.startswith('<') else f'<p>{escape(body)}</p>'}</body></html>"""
 
 
+@app.get("/terms")
+def terms():
+    """Privacy and terms live on one page; app stores and links often ask for /terms."""
+    return RedirectResponse("/privacy", status_code=308)
+
+
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy():
     s = get_settings()

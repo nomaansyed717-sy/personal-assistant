@@ -259,7 +259,7 @@ form.inline{background:var(--paper);border:1px solid var(--line);border-radius:v
       <form id="composer">
         <button class="icon-btn" type="button" id="attach" aria-label="Send a photo, PDF or text file" title="Photo, PDF or text file">📎</button>
         <input type="file" id="file" accept="image/*,application/pdf,text/plain" hidden>
-        <textarea id="say" placeholder="Message your assistant" aria-label="Message"></textarea>
+        <textarea id="say" placeholder="Message" aria-label="Message"></textarea>
         <button class="icon-btn" type="button" id="mic" aria-label="Record a voice note" title="Voice note">🎤</button>
         <button class="btn" type="submit">Send</button>
       </form>
@@ -545,7 +545,7 @@ const loaders = {
         const dl = h('dl'); rows.forEach(([k, v]) => dl.append(h('dt', null, k), h('dd', null, v))); d.append(dl); main.append(d);
       }
       const act = h('div', 'actions');
-      const yes = h('button', 'btn', 'Approve'); const no = h('button', 'btn ghost', 'Skip');
+      const yes = h('button', 'btn', a.kind === 'note' ? 'Mark handled' : 'Approve'); const no = h('button', 'btn ghost', 'Skip');
       yes.onclick = async () => { yes.disabled = no.disabled = true; try { const r = await api(`/approvals/${a.id}/approve`, {method:'POST'}); alertRow(main, r.result); refreshBadge(); } catch (err) { alertRow(main, err.message); } };
       no.onclick = async () => { await api(`/approvals/${a.id}/reject`, {method:'POST'}); slip.remove(); refreshBadge(); if (!box.children.length) loaders.approvals(); };
       act.append(yes, no); main.append(act); slip.append(stub, main); box.append(slip);

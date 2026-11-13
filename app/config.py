@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # Core
-    app_name: str = "Assistant"
+    app_name: str = "Aide"
     base_url: str = "http://localhost:8000"  # public URL, used for OAuth redirects and links
     database_url: str = "postgresql+psycopg://assistant:assistant@localhost:5432/assistant"
     # 32-byte url-safe base64 key: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"

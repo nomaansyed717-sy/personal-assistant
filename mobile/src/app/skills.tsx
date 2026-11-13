@@ -18,7 +18,7 @@ export default function Skills() {
 
   return (
     <Screen edges={[]}>
-      <P muted>Routines your assistant can run. Teach it new ones in chat ("save this as a skill") or here.</P>
+      <P muted>Routines your assistant can run. Teach it new ones in chat (“save this as a skill”) or here.</P>
       <Section>Skills</Section>
       {skills?.map(s => (
         <Card key={s.name}>

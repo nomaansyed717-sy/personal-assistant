@@ -101,3 +101,55 @@ def test_base_url_from_hosting_env(monkeypatch):
     get_settings.cache_clear()
     assert get_settings().base_url == "https://aide-production.up.railway.app"
     get_settings.cache_clear()
+
+
+def test_calendar_times_are_stored_in_utc():
+    from datetime import UTC, datetime
+
+    from app.integrations.google import _parse_dt
+
+    dt = _parse_dt("2026-11-12T10:30:00+05:30")
+    assert dt.tzinfo == UTC and dt.hour == 5 and dt.minute == 0
+    assert _parse_dt("2026-11-12T10:30:00Z") == datetime(2026, 11, 12, 10, 30, tzinfo=UTC)
+    assert _parse_dt("2026-11-12") == datetime(2026, 11, 12, tzinfo=UTC)
+
+
+def test_approval_cards_drop_chat_only_instructions():
+    from app.agent.actions import card_preview
+
+    text = "You owe Ravi: send the invoice, due Friday\nReply with the number once it's handled, or 'snooze N'."
+    assert card_preview(text) == "You owe Ravi: send the invoice, due Friday"
+    assert card_preview("Send this?\n_Hi Ravi_") == "Send this?\n_Hi Ravi_"
+
+
+def test_terms_redirects_to_privacy():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    r = TestClient(app).get("/terms", follow_redirects=False)
+    assert r.status_code == 308 and r.headers["location"] == "/privacy"
+
+
+def test_todays_events_follow_the_users_day_not_utcs():
+    from datetime import UTC, datetime, time, timedelta
+
+    from app.brief import todays_events
+    from app.db import session_scope
+    from app.models import Event, User
+    from app.util import local_now, zone
+    from tests.helpers import make_active_user
+
+    uid = make_active_user(phone="+15550001111")
+    with session_scope() as s:
+        user = s.get(User, uid)
+        user.timezone = "America/Los_Angeles"
+        tz = zone(user.timezone)
+        today = local_now(user.timezone).date()
+        # 23:30 local is the next day in UTC; 00:30 tomorrow local is not today.
+        late = datetime.combine(today, time(23, 30), tzinfo=tz).astimezone(UTC)
+        tomorrow = datetime.combine(today + timedelta(days=1), time(0, 30), tzinfo=tz).astimezone(UTC)
+        s.add(Event(user_id=uid, source="calendar", external_id="late", kind="calendar", subject="Late call", occurred_at=late))
+        s.add(Event(user_id=uid, source="calendar", external_id="tmr", kind="calendar", subject="Tomorrow", occurred_at=tomorrow))
+        s.flush()
+        assert [e.subject for e in todays_events(s, user)] == ["Late call"]

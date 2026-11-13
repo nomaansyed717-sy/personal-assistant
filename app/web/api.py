@@ -319,7 +319,7 @@ def chat(body: ChatIn, uid: int = Depends(current_user_id)):
 @router.get("/approvals")
 def approvals(uid: int = Depends(current_user_id)):
     with session_scope() as s:
-        return [{"id": a.id, "number": a.number, "kind": a.kind, "tier": a.tier, "preview": a.preview,
+        return [{"id": a.id, "number": a.number, "kind": a.kind, "tier": a.tier, "preview": actions.card_preview(a.preview),
                  "payload": a.payload, "created_at": aware(a.created_at).isoformat()}
                 for a in actions.open_proposals(s, uid)]
 

@@ -121,6 +121,13 @@ def propose(
     return action
 
 
+def card_preview(preview: str) -> str:
+    """The proposal text for an approval card in the app, without chat-only instructions
+    ("Reply with the number…"), since the card has its own buttons."""
+    lines = [ln for ln in (preview or "").split("\n") if not ln.strip().lower().startswith("reply with")]
+    return "\n".join(lines).strip()
+
+
 def open_proposals(session: Session, user_id: int) -> list[Action]:
     return session.scalars(
         select(Action).where(Action.user_id == user_id, Action.status == "proposed").order_by(Action.number)

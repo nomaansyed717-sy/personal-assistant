@@ -9,6 +9,7 @@ from app.channels import InboundMessage
 from app.db import session_scope
 from app.main import app, process_message
 from app.models import Action, Commitment, Consent, Event, Person, User
+from app.util import zone
 from tests.fakes import now
 
 PHONE = "+919876543210"
@@ -34,7 +35,10 @@ def seed_mailbox(g):
     g.add_email("m3", "t2", "me@example.com", ["anika@vc.com"], "Re: Deck", "I'll send the deck by Monday.", t - timedelta(days=3), sent=True)
     g.add_email("m4", "t3", "news@shop.com", ["me@example.com"], "Big sale", "50% off everything", t - timedelta(days=1), newsletter=True)
     g.add_email("m5", "t4", "sales@newvendor.com", ["me@example.com"], "Quote", "We'll share the quote by Wednesday.", t - timedelta(days=5), from_name="Priya")
-    g.add_event("e1", "Investor call", t.replace(hour=10, minute=0) if t.hour < 10 else t + timedelta(hours=1), attendees=["anika@vc.com"])
+    # The user is in India, so "today" is the Indian day: put the call later today in IST (it was UTC-day dependent).
+    local = t.astimezone(zone("Asia/Kolkata"))
+    start = local.replace(hour=10, minute=0) if local.hour < 10 else local + timedelta(hours=1) if local.hour < 22 else local.replace(minute=0)
+    g.add_event("e1", "Investor call", start, attendees=["anika@vc.com"])
 
 
 def scripted_extraction(content):

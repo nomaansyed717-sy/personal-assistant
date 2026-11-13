@@ -71,7 +71,7 @@ export default function Setup() {
           {state === 'awaiting_consent' && (
             <>
               <Text style={[styles.h, { color: t.text }]}>Welcome</Text>
-              <Text style={{ color: t.muted, marginBottom: space.m }}>Before we start, here's how your assistant treats your data.</Text>
+              <Text style={{ color: t.muted, marginBottom: space.m }}>Before we start, here’s how your assistant treats your data.</Text>
               <View style={[styles.promises, { backgroundColor: t.soft }]}>
                 {PROMISES.map(p => (
                   <View key={p} style={styles.li}>
@@ -100,7 +100,7 @@ export default function Setup() {
             <>
               <Text style={[styles.h, { color: t.text }]}>Connect your email</Text>
               <Text style={{ color: t.muted, marginBottom: space.l, lineHeight: 21 }}>
-                Connect Gmail and Google Calendar so your assistant can find what you've promised, what you're owed, and what's on today. It only sends what you approve.
+                Connect Gmail and Google Calendar so your assistant can find what you’ve promised, what you’re owed, and what’s on today. It only sends what you approve.
               </Text>
               <ErrorText>{error}</ErrorText>
               <Button title="Connect Google" onPress={connect} />
@@ -113,7 +113,7 @@ export default function Setup() {
             <>
               <Text style={[styles.h, { color: t.text }]}>Reading your last few weeks</Text>
               <Text style={{ color: t.muted, marginBottom: space.l, lineHeight: 21 }}>
-                This takes a few minutes. Your first brief appears as soon as it's ready, and we'll notify you.
+                This takes a few minutes. Your first brief appears as soon as it’s ready, and we’ll notify you.
               </Text>
               <ActivityIndicator color={t.text} />
             </>

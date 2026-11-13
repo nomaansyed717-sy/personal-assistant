@@ -8,6 +8,7 @@ const light = {
   bg: '#F7F7F5',        // app background
   card: '#FFFFFF',      // raised surfaces
   soft: '#EFEFEB',      // filled inputs, chips, secondary buttons
+  trackOff: '#D5D5CF',  // switch track when off (needs contrast against bg and card)
   text: '#0E0F11',
   muted: '#74777B',
   line: '#E7E7E2',
@@ -28,6 +29,7 @@ const dark: typeof light = {
   bg: '#0B0B0C',
   card: '#151517',
   soft: '#1E1E21',
+  trackOff: '#3A3A40',
   text: '#F3F3F1',
   muted: '#8E9196',
   line: '#26262A',

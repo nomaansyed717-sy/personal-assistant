@@ -8,9 +8,12 @@ import { BadgeContext } from '@/lib/badge';
 import { fonts, useTheme } from '@/lib/theme';
 
 type Icon = keyof typeof Ionicons.glyphMap;
-const icon = (on: Icon, off: Icon) => ({ color, focused }: { color: unknown; focused: boolean }) => (
-  <Ionicons name={focused ? on : off} color={color as string} size={23} />
-);
+const icon = (on: Icon, off: Icon) => {
+  const TabIcon = ({ color, focused }: { color: unknown; focused: boolean }) => (
+    <Ionicons name={focused ? on : off} color={color as string} size={23} />
+  );
+  return TabIcon;
+};
 
 export default function TabLayout() {
   const t = useTheme();

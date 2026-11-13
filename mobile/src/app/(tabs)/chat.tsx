@@ -172,7 +172,9 @@ export default function Chat() {
           renderItem={renderItem}
           contentContainerStyle={styles.thread}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => list.current?.scrollToEnd({ animated: false })}
+          // Open at the newest message. scrollToEnd is unreliable on web before cells are measured, so scroll
+          // to the reported content height on the next frame instead.
+          onContentSizeChange={(_w, h) => requestAnimationFrame(() => list.current?.scrollToOffset({ offset: h, animated: false }))}
           ListEmptyComponent={
             <View style={{ alignItems: 'center', marginTop: 80, gap: 6 }}>
               <Text style={{ color: t.text, fontSize: 20, fontWeight: '600', letterSpacing: -0.4 }}>What can I take off your plate?</Text>

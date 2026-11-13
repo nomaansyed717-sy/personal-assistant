@@ -18,7 +18,7 @@ export default function ActivityScreen() {
 
   return (
     <Screen edges={[]}>
-      <P muted style={{ marginBottom: space.m }}>Everything your assistant has done this week, and what it's about to do.</P>
+      <P muted style={{ marginBottom: space.m }}>Everything your assistant has done this week, and what it’s about to do.</P>
       <View style={[styles.tabs, { backgroundColor: t.soft }]} accessibilityRole="tablist">
         {(['planned', 'done'] as const).map(k => (
           <Pressable key={k} accessibilityRole="tab" accessibilityState={{ selected: tab === k }} onPress={() => setTab(k)}

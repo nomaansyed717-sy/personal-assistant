@@ -21,7 +21,7 @@ export default function Money() {
 
   return (
     <Screen edges={[]}>
-      <P muted>Recurring charges your assistant found in your email. It flags the ones you don't use and lines up cancellations for your yes.</P>
+      <P muted>Recurring charges your assistant found in your email. It flags the ones you don’t use and lines up cancellations for your yes.</P>
       <ErrorText>{error}</ErrorText>
       {subs && same && total ? (
         <Card accent><P bold>About {money(total, cur)} a month across {subs.length} subscriptions.</P></Card>

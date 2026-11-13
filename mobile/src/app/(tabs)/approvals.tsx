@@ -107,7 +107,7 @@ export default function Approvals() {
                 </Row>
               ) : (
                 <Row>
-                  <Button small title="Approve" onPress={() => approve(a)} style={{ flex: 1 }} />
+                  <Button small title={a.kind === 'note' ? 'Mark handled' : 'Approve'} onPress={() => approve(a)} style={{ flex: 1 }} />
                   <Button small kind="ghost" title="Skip" onPress={() => skip(a)} style={{ flex: 1 }} />
                 </Row>
               )}

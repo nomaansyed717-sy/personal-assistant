@@ -19,7 +19,7 @@ export default function Vault() {
 
   return (
     <Screen edges={[]}>
-      <P muted>Logins the secure browser can use for you. They're encrypted, the AI never sees them, and only the browser types them in. Never send passwords in chat.</P>
+      <P muted>Logins the secure browser can use for you. They’re encrypted, the AI never sees them, and only the browser types them in. Never send passwords in chat.</P>
       <Section>Saved logins</Section>
       {items && !items.length ? <Empty>No saved logins.</Empty> : null}
       {items?.map(v => (

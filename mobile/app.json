@@ -8,7 +8,7 @@
     "scheme": "aide",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "bundleIdentifier": "app.aide.assistant",
       "supportsTablet": true
     },
@@ -16,7 +16,7 @@
       "package": "app.aide.assistant",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#0E3B43",
+        "backgroundColor": "#0E0F11",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -53,15 +53,20 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0E3B43",
+          "backgroundColor": "#F7F7F5",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 76,
+          "dark": {
+            "backgroundColor": "#0B0B0C",
+            "image": "./assets/images/splash-icon-dark.png"
+          }
         }
       ],
       [
         "expo-notifications",
         {
-          "color": "#E8A33D"
+          "color": "#F05A28",
+          "icon": "./assets/images/android-icon-monochrome.png"
         }
       ],
       [

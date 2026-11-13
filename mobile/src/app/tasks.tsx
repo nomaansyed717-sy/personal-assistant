@@ -6,10 +6,16 @@ import { Button, Card, Empty, ErrorText, Field, P, Rich, Screen, Section, Text, 
 import { api, type StandingTask } from '@/lib/api';
 import { radius, space, useTheme } from '@/lib/theme';
 
+/** "18:30" in the phone's own clock style (6:30 PM or 18:30), matching how other times are shown. */
+const clock = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+};
+
 const SCHEDULES = [
   { v: 'every 12h', label: 'Every 12 hours' },
-  { v: 'daily 09:00', label: 'Every day at 9:00' },
-  { v: 'weekly fri 16:00', label: 'Fridays at 16:00' },
+  { v: 'daily 09:00', label: `Every day at ${clock('09:00')}` },
+  { v: 'weekly fri 16:00', label: `Fridays at ${clock('16:00')}` },
   { v: 'every 1h', label: 'Every hour' },
 ];
 const DAYS: Record<string, string> = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
@@ -17,8 +23,8 @@ const UNITS: Record<string, string> = { m: 'minutes', h: 'hours', d: 'days' };
 
 function schedText(s: string) {
   let m: RegExpExecArray | null;
-  if ((m = /^daily (\d\d:\d\d)$/.exec(s))) return 'Every day at ' + m[1];
-  if ((m = /^weekly (\w{3}) (\d\d:\d\d)$/.exec(s))) return `Every ${DAYS[m[1]] || m[1]} at ${m[2]}`;
+  if ((m = /^daily (\d\d:\d\d)$/.exec(s))) return 'Every day at ' + clock(m[1]);
+  if ((m = /^weekly (\w{3}) (\d\d:\d\d)$/.exec(s))) return `Every ${DAYS[m[1]] || m[1]} at ${clock(m[2])}`;
   if ((m = /^every (\d+)([mhd])$/.exec(s))) return `Every ${m[1]} ${UNITS[m[2]]}`;
   if ((m = /^once (.+)$/.exec(s))) return 'Once, ' + when(m[1]);
   return s;
@@ -64,7 +70,7 @@ export default function Tasks() {
       <ErrorText>{error}</ErrorText>
       <Button title="Start task" onPress={add} disabled={title.trim().length < 2 || instr.trim().length < 5} />
       <Section>Running and finished</Section>
-      {tasks && !tasks.length ? <Empty>No standing tasks yet. Try "watch this price" or "check every morning if a slot opened".</Empty> : null}
+      {tasks && !tasks.length ? <Empty>No standing tasks yet. Try “watch this price” or “check every morning if a slot opened”.</Empty> : null}
       {tasks?.map(task => (
         <Card key={task.id}>
           <P bold>{task.title}</P>

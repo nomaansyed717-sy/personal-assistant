@@ -283,7 +283,9 @@ class GoogleClient:
 def _parse_dt(value: str) -> datetime:
     if len(value) == 10:  # all-day "YYYY-MM-DD"
         return datetime.fromisoformat(value).replace(tzinfo=UTC)
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    # Store UTC: SQLite keeps the wall-clock time and drops the offset, so 10:30 IST would read back as 10:30 UTC.
+    return dt.astimezone(UTC) if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 def _b64(data: str) -> str:

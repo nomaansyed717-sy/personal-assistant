@@ -193,7 +193,7 @@ export function Toggle({ label, value, onChange, hint }: { label: string; value:
         <Text style={{ color: t.text, fontSize: 15, fontWeight: '500' }}>{label}</Text>
         {hint ? <Text style={{ color: t.muted, fontSize: 13, marginTop: 2 }}>{hint}</Text> : null}
       </View>
-      <View style={[styles.track, { backgroundColor: value ? t.ink : t.soft }]}>
+      <View style={[styles.track, { backgroundColor: value ? t.ink : t.trackOff }]}>
         <View style={[styles.knob, { backgroundColor: value ? t.onInk : t.card, transform: [{ translateX: value ? 18 : 0 }] }]} />
       </View>
     </Pressable>
