@@ -134,6 +134,8 @@ export type Me = {
   email: string | null;
   channel: string;
   push_previews: boolean;
+  voice_language: string;
+  telegram?: { available: boolean; linked: boolean; username: string | null; notify: boolean };
   google: string | null;
 };
 
@@ -173,4 +175,17 @@ export type VaultItem = { id: number; label: string; site: string; username?: st
 export type Activity = {
   planned: { when: string; what: string }[];
   done: { at: string; actor: string; action: string; label: string; detail: string }[];
+};
+
+export type CatalogApp = { id: string; name: string; auth: 'none' | 'token' | 'oauth'; url: string; help: string; blurb: string };
+export type ConnectedApp = {
+  id: number; name: string; slug: string; catalog_id: string; auth: 'none' | 'token' | 'oauth';
+  status: 'active' | 'needs_auth' | 'error'; last_error: string | null; url_host: string;
+  tools: { name: string; read_only: boolean }[]; tool_count: number;
+};
+
+export type Automation = {
+  id: number; title: string; source: 'email' | 'webhook'; match: { from?: string; subject?: string; text?: string };
+  instruction: string; status: 'active' | 'paused'; fires: number; webhook_url: string | null;
+  last_fired_at: string | null; last_result: string | null; summary: string;
 };

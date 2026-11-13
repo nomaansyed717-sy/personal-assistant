@@ -253,6 +253,36 @@ def logout(request: Request, response: Response, uid: int = Depends(current_user
 # ------------------------------------------------------------------ me + chat
 
 
+@router.post("/telegram/link")
+def telegram_link(uid: int = Depends(current_user_id)):
+    from app.channels import telegram
+
+    with session_scope() as s:
+        user = s.get(User, uid)
+        if user.demo:
+            raise HTTPException(status_code=403, detail="Telegram needs your own account, not the demo")
+        try:
+            return {"url": telegram.link_url(s, user)}
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/telegram")
+def telegram_unlink(uid: int = Depends(current_user_id)):
+    with session_scope() as s:
+        user = s.get(User, uid)
+        user.telegram_chat_id = None
+        audit(s, uid, "telegram_unlinked", "", actor="user")
+    return {"ok": True}
+
+
+@router.get("/voice-languages")
+def voice_languages():
+    from app.media import VOICE_LANGUAGES
+
+    return [{"code": k, "name": v} for k, v in VOICE_LANGUAGES.items()]
+
+
 @router.get("/me")
 def me(uid: int = Depends(current_user_id)):
     from app.models import Connection
@@ -266,6 +296,10 @@ def me(uid: int = Depends(current_user_id)):
                 "paused": u.paused, "onboarding_state": u.onboarding_state, "demo": bool(u.demo),
                 "phone": "demo" if u.demo else (u.phone[:-4] + "••••" if u.phone else None),
                 "email": _mask_email(u.email), "channel": u.channel, "push_previews": u.push_previews,
+                "voice_language": u.voice_language or "auto",
+                "telegram": {"available": bool(get_settings().telegram_bot_token and get_settings().telegram_bot_username),
+                             "linked": bool(u.telegram_chat_id), "username": u.telegram_username,
+                             "notify": u.telegram_notify},
                 "google": google.account_email if google else None}
 
 
@@ -560,6 +594,8 @@ class SettingsIn(BaseModel):
     training_opt_in: bool | None = None
     paused: bool | None = None
     push_previews: bool | None = None
+    voice_language: str | None = Field(default=None, max_length=8)
+    telegram_notify: bool | None = None
 
 
 @router.patch("/settings")
@@ -574,8 +610,14 @@ def update_settings(body: SettingsIn, uid: int = Depends(current_user_id)):
             except (ZoneInfoNotFoundError, ValueError) as exc:
                 raise HTTPException(status_code=400, detail="unknown time zone") from exc
             u.timezone = body.timezone
+        if body.voice_language is not None:
+            from app.media import VOICE_LANGUAGES
+
+            if body.voice_language not in VOICE_LANGUAGES:
+                raise HTTPException(status_code=400, detail="unsupported language")
+            u.voice_language = body.voice_language
         for field in ("assistant_name", "persona", "brief_hour", "ideas_enabled", "training_opt_in", "paused",
-                      "push_previews"):
+                      "push_previews", "telegram_notify"):
             v = getattr(body, field)
             if v is not None:
                 setattr(u, field, v.strip() if isinstance(v, str) else v)

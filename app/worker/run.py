@@ -52,6 +52,12 @@ def job_sync() -> None:
                 new = process_pending(s, user, llm)
                 if new:
                     log.info("user %s: %d new commitments", uid, new)
+                if stats.get("new_inbound_ids"):
+                    from app import triggers
+                    from app.agent.agent import run_background
+
+                    triggers.on_new_emails(s, user, stats["new_inbound_ids"],
+                                           lambda sess, u, prompt: run_background(sess, u, prompt, llm))
         except Exception:  # noqa: BLE001 - one user's failure must not stop the others
             log.exception("sync failed for user %s", uid)
 

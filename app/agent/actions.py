@@ -33,6 +33,7 @@ KIND_TIERS = {
     "phone_call": 3,
     "desktop_task": 3,
     "phone_task": 3,
+    "app_action": 2,  # a connected app's tool; destructive tools are tier 3
     "payment": 4,
     "purchase": 4,
 }
@@ -51,6 +52,7 @@ LABELS = {
     "phone_call": "phone call",
     "desktop_task": "desktop task",
     "phone_task": "phone task",
+    "app_action": "app action",
     "payment": "payment",
 }
 
@@ -73,6 +75,8 @@ def tier_for(session: Session, user: User, kind: str, payload: dict) -> int:
     tier = KIND_TIERS.get(kind, 3)
     recipients = list(payload.get("to") or []) + list(payload.get("cc") or []) + list(payload.get("attendees") or [])
     if tier == 2 and any(not is_known_contact(session, user.id, r) for r in recipients):
+        tier = 3
+    if kind == "app_action" and payload.get("destructive"):
         tier = 3
     return tier
 

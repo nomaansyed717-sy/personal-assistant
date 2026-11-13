@@ -1,9 +1,9 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, View } from 'react-native';
 
-import { Button, Card, ErrorText, Field, P, Row, Screen, Section, Toggle } from '@/components/ui';
+import { Button, Card, Chip, ErrorText, Field, P, Row, Screen, Section, Toggle } from '@/components/ui';
 import { API_URL, api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { space } from '@/lib/theme';
@@ -28,10 +28,14 @@ export default function Settings() {
   const [paused, setPaused] = useState(!!me?.paused);
   const [training, setTraining] = useState(!!me?.training_opt_in);
   const [previews, setPreviews] = useState(me?.push_previews ?? true);
+  const [voice, setVoice] = useState(me?.voice_language || 'auto');
+  const [tgNotify, setTgNotify] = useState(me?.telegram?.notify ?? true);
+  const [langs, setLangs] = useState<{ code: string; name: string }[]>([]);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { api<{ code: string; name: string }[]>('/voice-languages').then(setLangs).catch(() => {}); }, []);
 
   const save = async () => {
     setError(''); setStatus('');
@@ -40,7 +44,7 @@ export default function Settings() {
     try {
       await api('/settings', { method: 'PATCH', body: {
         assistant_name: name.trim() || null, persona: persona.trim(), timezone: tz.trim() || null, brief_hour: h,
-        ideas_enabled: ideas, paused, training_opt_in: training, push_previews: previews,
+        ideas_enabled: ideas, paused, training_opt_in: training, push_previews: previews, voice_language: voice, telegram_notify: tgNotify,
       } });
       await refresh();
       setStatus('Saved');
@@ -83,11 +87,45 @@ export default function Settings() {
       <Toggle label="Pause messages" hint="Your assistant won't message you first" value={paused} onChange={setPaused} />
       <Toggle label="Show message text in notifications" hint="Turn off to hide it on the lock screen" value={previews} onChange={setPreviews} />
       <Toggle label="Help improve the product" hint="De-identified data only. Never used for ads." value={training} onChange={setTraining} />
+      <Section>Voice language</Section>
+      <P small muted style={{ marginBottom: space.s }}>The language you speak when you tap the mic. Your assistant replies in the language you use.</P>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.s, marginBottom: space.m }}>
+        {langs.map(l => (
+          <Chip key={l.code} label={(voice === l.code ? '✓ ' : '') + l.name} onPress={() => setVoice(l.code)} />
+        ))}
+      </View>
       <ErrorText>{error}</ErrorText>
       <Row style={{ marginTop: space.s }}>
         <Button title="Save settings" onPress={save} />
         {status ? <P muted>{status}</P> : null}
       </Row>
+
+      {me?.telegram?.available && !me?.demo ? (
+        <>
+          <Section>Telegram</Section>
+          {me.telegram.linked ? (
+            <Card>
+              <P bold>Linked{me.telegram.username ? ` to @${me.telegram.username}` : ''}</P>
+              <P small muted style={{ marginTop: 4 }}>Message your assistant from Telegram too. Approvals arrive there with Approve and Skip buttons.</P>
+              <Toggle label="Send my messages to Telegram" hint="Briefs, results and approvals" value={tgNotify}
+                onChange={async v => { setTgNotify(v); try { await api('/settings', { method: 'PATCH', body: { telegram_notify: v } }); } catch (e) { setError((e as Error).message); } }} />
+              <Button small kind="warn" title="Unlink Telegram" style={{ alignSelf: 'flex-start' }}
+                onPress={async () => { await api('/telegram', { method: 'DELETE' }); await refresh(); }} />
+            </Card>
+          ) : (
+            <Card>
+              <P small muted style={{ marginBottom: space.m }}>Chat with your assistant in Telegram as well as here. Tap below, then tap Start in Telegram.</P>
+              <Button title="Connect Telegram" onPress={async () => {
+                setError('');
+                try {
+                  const { url } = await api<{ url: string }>('/telegram/link', { method: 'POST' });
+                  await Linking.openURL(url);
+                } catch (e) { setError((e as Error).message); }
+              }} />
+            </Card>
+          )}
+        </>
+      ) : null}
 
       <Section>Account</Section>
       <Card>

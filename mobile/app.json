@@ -84,7 +84,18 @@
       ],
       "expo-secure-store",
       "expo-localization",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Aide uses the microphone when you dictate a message or record a voice note.",
+          "speechRecognitionPermission": "Aide turns your speech into text when you dictate.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.tts"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false,

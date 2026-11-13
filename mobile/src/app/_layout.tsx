@@ -78,6 +78,8 @@ function Navigator() {
           <Stack.Screen name="tasks" options={{ title: 'Standing tasks' }} />
           <Stack.Screen name="memory" options={{ title: 'Memory' }} />
           <Stack.Screen name="skills" options={{ title: 'Skills' }} />
+          <Stack.Screen name="apps" options={{ title: 'Connected apps' }} />
+          <Stack.Screen name="automations" options={{ title: 'Automations' }} />
           <Stack.Screen name="money" options={{ title: 'Money' }} />
           <Stack.Screen name="vault" options={{ title: 'Vault' }} />
           <Stack.Screen name="settings" options={{ title: 'Settings' }} />

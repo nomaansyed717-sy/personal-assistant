@@ -242,7 +242,8 @@ async def chat_upload(request: Request, file: UploadFile = File(...), caption: s
         if user.onboarding_state != "active":
             raise HTTPException(status_code=400, detail="Finish setting up first.")
         try:
-            text, attachments = prepare_bytes(data, file.content_type, caption[:2000], file.filename, audio=voice)
+            text, attachments = prepare_bytes(data, file.content_type, caption[:2000], file.filename, audio=voice,
+                                              language=user.voice_language or "auto")
         except MediaError as exc:
             return {"reply": str(exc), "transcript": None}
         shown = ("🎤 " + text) if voice else (caption or f"📎 {file.filename or 'attachment'}")

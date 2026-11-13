@@ -24,7 +24,7 @@ from app.llm import get_llm
 from app.models import OAuthState, User
 from app.util import aware, normalize_phone
 from app.web import api as web_api
-from app.web import app_api, phone_api
+from app.web import app_api, connectors_api, phone_api, triggers_api
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("app")
@@ -37,6 +37,9 @@ async def lifespan(_app: FastAPI):
     if missing:
         log.warning("still to configure: %s", ", ".join(missing))
     init_db()
+    from app.channels import telegram
+
+    threading.Thread(target=telegram.register_webhook, daemon=True).start()
     sched = None
     if get_settings().run_worker_in_web and not _app.state.__dict__.get("testing"):
         from app.worker.run import start_background
@@ -51,6 +54,8 @@ app = FastAPI(title="Assistant", docs_url=None, redoc_url=None, lifespan=lifespa
 app.include_router(web_api.router)
 app.include_router(app_api.router)
 app.include_router(phone_api.router)
+app.include_router(connectors_api.router)
+app.include_router(triggers_api.router)
 if get_settings().cors_origins:
     from fastapi.middleware.cors import CORSMiddleware
 
@@ -135,6 +140,33 @@ def process_message(msg: InboundMessage, channel_name: str = "whatsapp") -> None
                 log.exception("could not send error notice")
 
 
+@app.post("/webhooks/telegram")
+async def telegram_webhook(request: Request, background: BackgroundTasks):
+    from app.channels import telegram
+
+    if not telegram.verify(request.headers.get("x-telegram-bot-api-secret-token")):
+        raise HTTPException(status_code=403, detail="bad secret")
+    background.add_task(_process_telegram, await request.json())
+    return {"ok": True}  # answer fast; Telegram retries slow webhooks
+
+
+def _process_telegram(update: dict) -> None:
+    from app.channels import telegram
+
+    chat = str(((update.get("message") or (update.get("callback_query") or {}).get("message") or {}).get("chat") or {}).get("id", ""))
+    with _user_locks["tg:" + chat]:
+        try:
+            with session_scope() as session:
+                telegram.handle_update(session, update, get_llm())
+        except Exception:  # noqa: BLE001
+            log.exception("telegram update failed")
+            if chat:
+                try:
+                    telegram.send(chat, "Sorry, something went wrong on my side. Please try that again.")
+                except Exception:  # noqa: BLE001
+                    log.exception("could not send telegram error notice")
+
+
 # ------------------------------------------------------------------ Google OAuth
 
 
@@ -164,6 +196,26 @@ def google_callback(background: BackgroundTasks, state: str = "", code: str = ""
     background.add_task(_after_connect, user_id)
     return HTMLResponse(_done_page("You're connected", "I'm reading the last few weeks now. "
                                    "I'll message you what I find in a few minutes.", return_to))
+
+
+@app.get("/oauth/connector/callback")
+def connector_callback(state: str = "", code: str = "", error: str = ""):
+    """A connected app (MCP server) sends the user back here after they sign in."""
+    from app import connectors
+
+    with session_scope() as session:
+        st = session.scalar(select(OAuthState).where(OAuthState.token == state))
+        return_to = (st.return_to if st else None) or "app"
+        if error or not code:
+            return HTMLResponse(_done_page("Not connected", "Access wasn't granted. You can try again any time.",
+                                           return_to, ok=False), 400)
+        try:
+            c, return_to = connectors.finish_oauth(session, state, code)
+        except connectors.ConnectorError as exc:
+            return HTMLResponse(_done_page("Not connected", str(exc), return_to, ok=False), 400)
+        name = c.name
+    return HTMLResponse(_done_page(f"{name} is connected", f"Your assistant can now use {name}. "
+                                   "Anything that changes or sends something still asks you first.", return_to))
 
 
 def _done_page(title: str, body: str, return_to: str, ok: bool = True) -> str:

@@ -171,3 +171,17 @@ def test_chat_proposal_approval_queues_the_job(client):
     with session_scope() as s:
         assert s.get(Action, aid).status == "executed"
         assert s.scalar(select(PhoneJob)).action_id == aid
+
+
+def test_accessibility_consent_is_recorded():
+    from sqlalchemy import select
+
+    from app.db import session_scope
+    from app.models import Consent
+    from tests.test_app import H, _app_client
+
+    c, auth = _app_client("consent@example.in")
+    assert c.post("/api/phone/consent", json={"granted": True}, headers={**auth, **H}).json()["ok"]
+    with session_scope() as s:
+        row = s.scalar(select(Consent).where(Consent.scope == "accessibility"))
+        assert row is not None and row.granted

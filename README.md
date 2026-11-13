@@ -2,7 +2,7 @@
 
 A personal AI assistant on **Android and the web**, built in India for the world. It reads your email and calendar and tracks what you've promised and what you're owed. Every morning it sends you the 3 to 5 things that need you, each with a reply ready to send. You approve with a tap. Nothing goes out without your yes unless you've explicitly delegated it.
 
-**App-first.** The Android app (`mobile/`, Expo React Native) and the web app (`/app`) are the product. People sign in with a one-time code sent by email or SMS, and messages from the assistant arrive in the app with a push notification. WhatsApp is no longer the main channel: Meta's WhatsApp Business terms have barred general-purpose AI assistants since 15 January 2026. The WhatsApp adapter stays in the code as an optional channel and is off unless its credentials are set.
+**App-first.** The Android app (`mobile/`, Expo React Native) and the web app (`/app`) are the product; Telegram is an optional second channel. For Google Play, see [`docs/play-store.md`](docs/play-store.md): the Play build leaves out the phone agent. People sign in with a one-time code sent by email or SMS, and messages from the assistant arrive in the app with a push notification. WhatsApp is no longer the main channel: Meta's WhatsApp Business terms have barred general-purpose AI assistants since 15 January 2026. The WhatsApp adapter stays in the code as an optional channel and is off unless its credentials are set.
 
 This repo is **Phases 0–1** of the product spec: the working core you can put in front of design partners. Phases 2–3 (web errands, phone calls, phone and desktop control, our own model) have their interfaces in place, and their executors switch on later.
 
@@ -18,6 +18,10 @@ This repo is **Phases 0–1** of the product spec: the working core you can put 
 | **Secure computer with a browser** | Approved web tasks run in a headless Chromium on the server: compare options, fill forms, book up to the payment step |
 | **Credential vault** | Logins are encrypted, and only the browser can type them in. The model never sees them, and it can't type into password or card fields |
 | **Sentinel** | An independent reviewer checks every outbound action, blocking secrets, internal addresses (SSRF) and anything you didn't ask for |
+| **Connected apps (MCP)** | Notion, Linear, GitHub, Stripe, or a Zapier / Composio link that reaches thousands of apps. Any MCP server works: sign in with OAuth or paste a token under More > Connected apps. Reads run straight away; anything that creates, changes or sends waits in Approvals |
+| **Automations** | "When an email from billing@ with *invoice* arrives, note the due date and remind me", or a secret webhook URL for Stripe, Shopify, forms and scripts. The event reaches the assistant as data only |
+| **Speak your language** | Tap the mic to dictate in Hindi, Marathi, Tamil, Telugu, Bengali, Gujarati, Kannada, Malayalam, Punjabi, Odia or Urdu on the phone itself; voice notes use Sarvam AI (or OpenAI) with the language you pick |
+| **Telegram** | Link Telegram from Settings: chat there too, and approvals arrive with Approve / Skip buttons |
 | **Works with your apps, builds its own tools** | Gmail and Calendar. 11 built-in skills, including small-business ones (invoice chaser, lead reply, review responder, daily numbers). Teach it new ones with "save this as a skill" |
 | **Saving money, shopping smarter** | Finds subscriptions in your email, runs a subscription audit, watches prices. Purchases end with a checkout link: you pay, never the agent |
 | **Approve critical actions, full audit trail** | Approve or skip from the Approvals tab, with the exact details of what will happen. `what did you do today` and `what are you planning` |

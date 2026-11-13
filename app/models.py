@@ -49,6 +49,12 @@ class User(Base):
     pending_confirmation: Mapped[str | None] = mapped_column(String(64))  # e.g. "delete_everything"
     assistant_name: Mapped[str] = mapped_column(String(60), default="Aide")  # users name their assistant
     persona: Mapped[str | None] = mapped_column(Text)  # tone/personality the user asked for
+    # Spoken language for dictation and voice notes: "auto" or a BCP-47 code such as hi-IN, mr-IN, ta-IN
+    voice_language: Mapped[str] = mapped_column(String(8), default="auto")
+    # Telegram, linked from the app: replies and proactive messages are mirrored to this chat
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(32), unique=True, index=True, nullable=True)
+    telegram_username: Mapped[str | None] = mapped_column(String(64))
+    telegram_notify: Mapped[bool] = mapped_column(Boolean, default=True)
     ideas_enabled: Mapped[bool] = mapped_column(Boolean, default=True)  # daily proactive suggestions
     last_ideas_on: Mapped[date | None] = mapped_column(Date)
     training_opt_in: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -63,7 +69,7 @@ class Consent(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    scope: Mapped[str] = mapped_column(String(64))  # terms | gmail | calendar | training
+    scope: Mapped[str] = mapped_column(String(64))  # terms | gmail | calendar | training | accessibility
     granted: Mapped[bool] = mapped_column(Boolean)
     policy_version: Mapped[str] = mapped_column(String(32), default="2026-10")
     at: Mapped[datetime] = mapped_column(TS, default=utcnow)
@@ -419,3 +425,59 @@ class PhoneJob(Base):
     result: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+
+class Connector(Base):
+    """A connected app: a remote MCP server whose tools the assistant can use (see app/connectors.py)."""
+
+    __tablename__ = "connectors"
+    __table_args__ = (UniqueConstraint("user_id", "slug"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    slug: Mapped[str] = mapped_column(String(32))  # how the agent names it: notion, github, zapier_2
+    catalog_id: Mapped[str] = mapped_column(String(32), default="custom")
+    # The URL is encrypted: Zapier and Composio URLs are themselves the secret.
+    url_enc: Mapped[str] = mapped_column(Text)
+    auth: Mapped[str] = mapped_column(String(8), default="none")  # none | token | oauth
+    token_enc: Mapped[str | None] = mapped_column(Text)
+    refresh_token_enc: Mapped[str | None] = mapped_column(Text)
+    expires_at: Mapped[datetime | None] = mapped_column(TS)
+    oauth_meta: Mapped[dict] = mapped_column(JSON, default=dict)  # client_id, token_endpoint, pending PKCE
+    tools: Mapped[list] = mapped_column(JSON, default=list)  # cached tools/list
+    tools_at: Mapped[datetime | None] = mapped_column(TS)
+    status: Mapped[str] = mapped_column(String(16), default="active")  # active | needs_auth | error
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+    @property
+    def url(self) -> str:
+        from app.crypto import decrypt
+
+        return decrypt(self.user_id, self.url_enc) or ""
+
+
+class Trigger(Base):
+    """An automation that runs when something happens: a matching email arrives, or a webhook is called.
+
+    The instruction runs through the agent in background mode, so anything it proposes still waits for a yes.
+    """
+
+    __tablename__ = "triggers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(160))
+    source: Mapped[str] = mapped_column(String(16))  # email | webhook
+    # email filters, all optional and case-insensitive: {"from": "...", "subject": "...", "text": "..."}
+    match: Mapped[dict] = mapped_column(JSON, default=dict)
+    instruction: Mapped[str] = mapped_column(Text)
+    token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)  # webhook URL secret
+    status: Mapped[str] = mapped_column(String(16), default="active", index=True)  # active | paused
+    fires: Mapped[int] = mapped_column(Integer, default=0)
+    window_start: Mapped[datetime | None] = mapped_column(TS)  # rate limit window
+    window_fires: Mapped[int] = mapped_column(Integer, default=0)
+    last_fired_at: Mapped[datetime | None] = mapped_column(TS)
+    last_result: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)

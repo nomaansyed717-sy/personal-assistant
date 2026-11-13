@@ -14,7 +14,9 @@ const GROUPS: { title: string; items: Item[] }[] = [
       { href: '/activity', icon: 'time-outline', title: 'Activity', sub: 'What it did and plans to do' },
       { href: '/goals', icon: 'flag-outline', title: 'Goals', sub: 'What it works toward with you' },
       { href: '/tasks', icon: 'repeat-outline', title: 'Standing tasks', sub: 'Price watches, slot checks, chasers' },
+      { href: '/automations', icon: 'git-network-outline', title: 'Automations', sub: 'When an email arrives or a webhook fires' },
       { href: '/skills', icon: 'sparkles-outline', title: 'Skills', sub: 'Routines it can run for you' },
+      { href: '/apps', icon: 'apps-outline', title: 'Connected apps', sub: 'Notion, GitHub, Zapier and 8,000 more' },
     ],
   },
   {

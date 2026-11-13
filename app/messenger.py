@@ -52,6 +52,10 @@ def send(session: Session, user: User, text: str, kind: str = "message") -> None
 
         session.add(Message(user_id=user.id, direction="out", channel="app", body_enc=encrypt(user.id, text)))
         push.notify(session, user, text, kind=kind)
+        if user.telegram_chat_id:
+            from app.channels import telegram
+
+            telegram.mirror(user, text)
         return
     channel = get_channel()
     if channel.has_session_window and not window_open(user):

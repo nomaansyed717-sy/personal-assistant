@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     whatsapp_verify_token: str = ""  # any secret string, also set in the Meta webhook config
     whatsapp_app_secret: str = ""  # used to verify X-Hub-Signature-256
     whatsapp_api_version: str = "v21.0"
+    # Telegram (optional): a bot from @BotFather. Users link it from the app; messages and approvals mirror there.
+    telegram_bot_token: str = ""
+    telegram_bot_username: str = ""  # without the @, e.g. AideAssistantBot
+    telegram_webhook_secret: str = ""  # any long random string; Telegram echoes it so we know it's them
     # Approved template used to reopen the 24h window for proactive messages
     whatsapp_reopen_template: str = "assistant_update"
     whatsapp_template_language: str = "en"
@@ -65,7 +69,10 @@ class Settings(BaseSettings):
     # Web research (either one enables web_search; read_url always works)
     tavily_api_key: str = ""
     brave_api_key: str = ""
-    # Voice notes: transcription via OpenAI's API (optional)
+    # Voice notes: transcription. Sarvam AI first when set (built for Indian languages and code-mixed speech),
+    # then OpenAI. Either is optional; without both, voice notes ask the user to type or use live dictation.
+    sarvam_api_key: str = ""
+    sarvam_model: str = "saaras:v4"
     openai_api_key: str = ""
     transcribe_model: str = "gpt-4o-mini-transcribe"
 

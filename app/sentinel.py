@@ -90,7 +90,7 @@ REVIEW_SCHEMA = {
 
 def review_action(session: Session, user: User, action: Action, llm: LLM | None) -> Verdict:
     payload_text = to_json(action.payload)
-    if action.kind in ("send_email", "browser_task", "phone_call", "phone_task") and contains_secret(payload_text):
+    if action.kind in ("send_email", "browser_task", "phone_call", "phone_task", "app_action") and contains_secret(payload_text):
         return Verdict(False, "it contains what looks like a card number, code, key or password")
     simulated = bool(user.demo) and action.kind in ("browser_task", "phone_call", "phone_task")
     for key in ("url", "start_url"):

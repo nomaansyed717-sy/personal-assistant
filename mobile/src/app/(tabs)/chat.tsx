@@ -11,6 +11,7 @@ import { Chip, Rich, Text, TextInput } from '@/components/ui';
 import { api, upload, type ChatMessage, type UploadFile } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useBadge } from '@/lib/badge';
+import { dictationLocale, useDictation } from '@/lib/dictation';
 import { radius, space, useTheme } from '@/lib/theme';
 
 const SUGGESTIONS = ["What's open?", 'What are you planning?', 'Plan my week around my goals', 'Find subscriptions I can cancel', 'What did you do today?'];
@@ -30,6 +31,9 @@ export default function Chat() {
   const lastId = useRef(0);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const rec = useAudioRecorderState(recorder);
+  // Tap the mic to dictate (live, in the user's language); hold it to send a voice note instead.
+  const baseText = useRef('');
+  const dictation = useDictation((spoken) => setText((baseText.current ? baseText.current + ' ' : '') + spoken));
 
   const load = useCallback(async () => {
     try {
@@ -121,6 +125,13 @@ export default function Chat() {
     await sendFile({ uri: a.uri, name: a.name, type: a.mimeType || 'application/octet-stream' });
   };
 
+  const dictate = async () => {
+    if (dictation.listening) { dictation.stop(); return; }
+    baseText.current = text.trim();
+    const started = await dictation.start(dictationLocale(me?.voice_language));
+    if (!started) await toggleRecording(); // no speech recognition on this phone: fall back to a voice note
+  };
+
   const toggleRecording = async () => {
     if (rec.isRecording) {
       await recorder.stop();
@@ -197,6 +208,11 @@ export default function Chat() {
             ))}
           </View>
         ) : null}
+        {dictation.listening || dictation.error ? (
+          <Text style={{ color: dictation.error ? t.rose : t.ink2, fontSize: 12.5, paddingHorizontal: space.l, paddingTop: 4 }}>
+            {dictation.error || 'Listening… speak, then tap stop'}
+          </Text>
+        ) : null}
         <View style={styles.composer}>
           <View style={[styles.field, { backgroundColor: t.card, borderColor: rec.isRecording ? t.rose : t.line }]}>
             <Pressable accessibilityLabel="Attach a photo or file" onPress={() => setAttachOpen(o => !o)} style={styles.inlineIcon} hitSlop={8}>
@@ -219,17 +235,18 @@ export default function Chat() {
                 accessibilityLabel="Message"
               />
             )}
-            {text.trim() && !rec.isRecording ? (
+            {text.trim() && !rec.isRecording && !dictation.listening ? (
               <Pressable accessibilityLabel="Send" onPress={() => send()} disabled={!!busy} style={[styles.send, { backgroundColor: t.ink, opacity: busy ? 0.4 : 1 }]}>
                 <Ionicons name="arrow-up" size={20} color={t.onInk} />
               </Pressable>
             ) : (
               <Pressable
-                accessibilityLabel={rec.isRecording ? 'Stop and send voice note' : 'Record a voice note'}
-                onPress={toggleRecording}
+                accessibilityLabel={rec.isRecording ? 'Stop and send voice note' : dictation.listening ? 'Stop dictating' : 'Dictate. Hold to send a voice note'}
+                onPress={rec.isRecording ? toggleRecording : dictate}
+                onLongPress={rec.isRecording || dictation.listening ? undefined : toggleRecording}
                 disabled={!!busy}
-                style={[styles.send, { backgroundColor: rec.isRecording ? t.rose : t.soft }]}>
-                <Ionicons name={rec.isRecording ? 'stop' : 'mic-outline'} size={20} color={rec.isRecording ? '#FFFFFF' : t.text} />
+                style={[styles.send, { backgroundColor: rec.isRecording || dictation.listening ? t.rose : t.soft }]}>
+                <Ionicons name={rec.isRecording || dictation.listening ? 'stop' : 'mic-outline'} size={20} color={rec.isRecording || dictation.listening ? '#FFFFFF' : t.text} />
               </Pressable>
             )}
           </View>

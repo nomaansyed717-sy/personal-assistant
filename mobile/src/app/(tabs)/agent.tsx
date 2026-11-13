@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { AppState, Platform, RefreshControl, StyleSheet, View } from 'react-native';
 
@@ -58,6 +58,12 @@ export default function Agent() {
 
   const start = async () => {
     setError('');
+    if (!phoneAgentAvailable) {
+      // This build has no phone agent (the Play Store version, or the web): do it on the web with the secure browser.
+      router.push({ pathname: '/chat', params: { draft: `Do this for me on the web: ${goal.trim()}` } });
+      setGoal('');
+      return;
+    }
     try {
       await api<PhoneJob>('/phone/jobs', { method: 'POST', body: { goal: goal.trim() } });
       setGoal('');
@@ -73,7 +79,9 @@ export default function Agent() {
 
   return (
     <Screen refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={t.muted} />}>
-      <Title eyebrow="Phone agent" sub="Tell me what to do. I'll use the apps on your phone, and stop for you to sign in and to pay.">Do it for me</Title>
+      <Title eyebrow={phoneAgentAvailable ? 'Phone agent' : 'Errands'} sub={phoneAgentAvailable
+        ? 'Tell me what to do. I’ll use the apps on your phone, and stop for you to sign in and to pay.'
+        : 'Tell me what to do. I’ll do it on the web with my secure browser, and stop for you to pay.'}>Do it for me</Title>
 
       <View style={[styles.composer, { backgroundColor: t.card, borderColor: t.line }]}>
         <TextInput
@@ -102,17 +110,12 @@ export default function Agent() {
         <Card flat style={{ marginTop: space.l }}><P small>The phone agent works in your own account on your Android phone. In the demo, ask in Chat and I’ll show what it would do.</P></Card>
       ) : !phoneAgentAvailable ? (
         <Card flat style={{ marginTop: space.l }}>
-          {Platform.OS === 'android' ? (
-            <>
-              <P bold>This version doesn’t include the phone agent</P>
-              <P small muted style={{ marginTop: 4 }}>It’s the version without the accessibility service, so it installs without being blocked. Install the full version to let Aide use your apps.</P>
-            </>
-          ) : (
-            <>
-              <P bold>Install the Android app to use this</P>
-              <P small muted style={{ marginTop: 4 }}>The phone agent runs inside Aide’s Android app. It isn’t available in a browser or in Expo Go.</P>
-            </>
-          )}
+          <P bold>I’ll do it on the web instead</P>
+          <P small muted style={{ marginTop: 4 }}>
+            {Platform.OS === 'android'
+              ? 'This version doesn’t use your phone’s apps. Tap Do it and I’ll book on the website with my secure browser, up to the payment step, after you say yes. The version that uses your phone’s apps is a separate download.'
+              : 'Tap Do it and I’ll book on the website with my secure browser, up to the payment step, after you say yes. To let me use the apps on your phone, install the Android app.'}
+          </P>
         </Card>
       ) : !enabled ? (
         <Card style={{ marginTop: space.l }}>
@@ -134,8 +137,14 @@ export default function Agent() {
               </Row>
             ))}
           </View>
-          <Button title="Turn on in Settings" onPress={() => { PhoneAgent.openSettings(); }} />
-          <P small muted style={{ marginTop: space.s, textAlign: 'center' }}>Open “Aide phone agent” and switch it on.</P>
+          <P small muted style={{ marginBottom: space.m }}>
+            By tapping Agree, you allow Aide to read what’s on your screen and tap and type in your apps while a task you started is running, and to send that screen content to Aide’s servers to decide each step.
+          </P>
+          <Button title="Agree and turn on" onPress={async () => {
+            try { await api('/phone/consent', { method: 'POST', body: { granted: true } }); } catch { /* still let them continue */ }
+            PhoneAgent.openSettings();
+          }} />
+          <P small muted style={{ marginTop: space.s, textAlign: 'center' }}>Then open “Aide phone agent” and switch it on.</P>
         </Card>
       ) : null}
 

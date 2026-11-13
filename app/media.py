@@ -28,13 +28,13 @@ MAX_UPLOAD = 20 * 1024 * 1024
 
 
 def prepare_bytes(data: bytes, mime: str | None, caption: str = "", filename: str | None = None,
-                  audio: bool = False) -> tuple[str, list[dict]]:
+                  audio: bool = False, language: str = "auto") -> tuple[str, list[dict]]:
     """Same as prepare(), for bytes uploaded straight from the app."""
     if len(data) > MAX_UPLOAD:
         raise MediaError("That file is over 20 MB. Please send a smaller one.")
     mime = (mime or "").split(";")[0].strip().lower()
     if audio or mime.startswith("audio/"):
-        return transcribe(data, mime, filename), []
+        return transcribe(data, mime, filename, language), []
     b64 = base64.standard_b64encode(data).decode()
     if mime in IMAGE_TYPES:
         return caption or "(The user sent this photo without a caption. Work out what they likely want.)", [
@@ -49,23 +49,46 @@ def prepare_bytes(data: bytes, mime: str | None, caption: str = "", filename: st
     raise MediaError(f"I can read photos, PDFs, text files and voice notes, but not {mime or 'this file type'} yet.")
 
 
-def transcribe(data: bytes, mime: str, filename: str | None = None) -> str:
+# Languages people can pick for voice: Indian languages first, then English (India).
+VOICE_LANGUAGES = {
+    "auto": "Detect automatically", "en-IN": "English (India)", "hi-IN": "हिन्दी", "mr-IN": "मराठी",
+    "bn-IN": "বাংলা", "ta-IN": "தமிழ்", "te-IN": "తెలుగు", "gu-IN": "ગુજરાતી", "kn-IN": "ಕನ್ನಡ",
+    "ml-IN": "മലയാളം", "pa-IN": "ਪੰਜਾਬੀ", "od-IN": "ଓଡ଼ିଆ", "ur-IN": "اردو",
+}
+_EXT = {"audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac", "audio/amr": "amr",
+        "audio/webm": "webm", "audio/x-m4a": "m4a", "audio/m4a": "m4a", "audio/wav": "wav"}
+
+
+def transcribe(data: bytes, mime: str, filename: str | None = None, language: str = "auto") -> str:
     s = get_settings()
-    if not s.openai_api_key:
-        raise MediaError("Voice notes need transcription switched on (OPENAI_API_KEY). Please type it for now.")
-    ext = {"audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac", "audio/amr": "amr",
-           "audio/webm": "webm", "audio/x-m4a": "m4a", "audio/m4a": "m4a", "audio/wav": "wav"}.get(mime, "ogg")
-    r = httpx.post(
-        "https://api.openai.com/v1/audio/transcriptions",
-        headers={"Authorization": f"Bearer {s.openai_api_key}"},
-        data={"model": s.transcribe_model},
-        files={"file": (filename or f"voice.{ext}", data, mime or "audio/ogg")},
-        timeout=60,
-    )
+    if not (s.sarvam_api_key or s.openai_api_key):
+        raise MediaError("Voice notes need transcription switched on. Use the mic in the message box to dictate instead.")
+    name = filename or f"voice.{_EXT.get(mime, 'ogg')}"
+    if s.sarvam_api_key:
+        r = httpx.post(
+            "https://api.sarvam.ai/speech-to-text",
+            headers={"api-subscription-key": s.sarvam_api_key},
+            data={"model": s.sarvam_model, "language_code": language if language in VOICE_LANGUAGES and language != "auto" else "unknown"},
+            files={"file": (name, data, mime or "audio/ogg")},
+            timeout=60,
+        )
+        key = "transcript"
+    else:
+        form = {"model": s.transcribe_model}
+        if language and language != "auto":
+            form["language"] = "or" if language == "od-IN" else language.split("-")[0]
+        r = httpx.post(
+            "https://api.openai.com/v1/audio/transcriptions",
+            headers={"Authorization": f"Bearer {s.openai_api_key}"},
+            data=form,
+            files={"file": (name, data, mime or "audio/ogg")},
+            timeout=60,
+        )
+        key = "text"
     if r.status_code >= 400:
         log.error("transcription failed %s: %s", r.status_code, r.text[:300])
         raise MediaError("I couldn't make out that voice note. Could you type it?")
-    text = r.json().get("text", "").strip()
+    text = (r.json().get(key) or "").strip()
     if not text:
         raise MediaError("That voice note seemed empty.")
     return text

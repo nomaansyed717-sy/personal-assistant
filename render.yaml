@@ -27,6 +27,13 @@ envVarGroups:
       - { key: SMTP_PASSWORD, sync: false }
       - { key: RESEND_API_KEY, sync: false }
       - { key: ANTHROPIC_API_KEY, sync: false }
+      # Voice in Indian languages (optional): Sarvam AI first, then OpenAI
+      - { key: SARVAM_API_KEY, sync: false }
+      - { key: OPENAI_API_KEY, sync: false }
+      # Telegram (optional): a bot token from @BotFather and its username
+      - { key: TELEGRAM_BOT_TOKEN, sync: false }
+      - { key: TELEGRAM_BOT_USERNAME, sync: false }
+      - { key: TELEGRAM_WEBHOOK_SECRET, generateValue: true }
       - { key: SMS_PROVIDER, value: msg91 }
       - { key: MSG91_AUTH_KEY, sync: false }
       - { key: MSG91_TEMPLATE_ID, sync: false }

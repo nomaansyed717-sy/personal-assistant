@@ -92,3 +92,19 @@ def job_event(jid: int, body: EventIn, uid: int = Depends(current_user_id)):
         job = _own(s, uid, jid)
         phone_agent.event(s, s.get(User, uid), job, body.type, body.detail)
         return phone_agent.to_dict(job)
+
+
+class ConsentIn(BaseModel):
+    granted: bool
+
+
+@router.post("/consent")
+def accessibility_consent(body: ConsentIn, uid: int = Depends(current_user_id)):
+    """The prominent-disclosure screen: the user agreed (or withdrew) before turning on the accessibility service."""
+    from app.audit import audit
+    from app.models import Consent
+
+    with session_scope() as s:
+        s.add(Consent(user_id=uid, scope="accessibility", granted=body.granted))
+        audit(s, uid, "consent", f"accessibility: {'granted' if body.granted else 'withdrawn'}", actor="user")
+    return {"ok": True}

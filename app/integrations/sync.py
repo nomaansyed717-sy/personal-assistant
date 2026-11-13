@@ -34,9 +34,9 @@ def sync_user(session: Session, user: User, max_messages: int = 300) -> dict:
     conn = client.conn
     since = aware(conn.last_sync_at) - timedelta(hours=1) if conn.last_sync_at else utcnow() - timedelta(days=s.initial_sync_days)
     started = utcnow()
-    stats = {"emails": 0, "events": 0}
+    stats = {"emails": 0, "events": 0, "new_inbound_ids": []}
     try:
-        stats["emails"] = _sync_gmail(session, user, client, since, max_messages)
+        stats["emails"] = _sync_gmail(session, user, client, since, max_messages, stats["new_inbound_ids"])
         stats["events"] = _sync_calendar(session, user, client)
     except GoogleError as exc:
         log.warning("sync failed for user %s: %s", user.id, exc)
@@ -46,7 +46,8 @@ def sync_user(session: Session, user: User, max_messages: int = 300) -> dict:
     return stats
 
 
-def _sync_gmail(session: Session, user: User, client: GoogleClient, since, max_messages: int) -> int:
+def _sync_gmail(session: Session, user: User, client: GoogleClient, since, max_messages: int,
+                new_inbound: list[int] | None = None) -> int:
     query = f"after:{int(since.timestamp())} {GMAIL_FILTER}"
     ids = client.list_message_ids(query, max_results=max_messages)
     if not ids:
@@ -66,22 +67,24 @@ def _sync_gmail(session: Session, user: User, client: GoogleClient, since, max_m
         # Newsletters and receipts rarely hold commitments; keep them out of the ledger.
         if not outgoing and m["list_unsubscribe"]:
             continue
-        session.add(
-            Event(
-                user_id=user.id,
-                source="gmail",
-                external_id=m["id"],
-                thread_id=m["thread_id"],
-                kind="email_out" if outgoing else "email_in",
-                from_addr=m["from_addr"],
-                from_name=m["from_name"],
-                to_addrs=m["to"],
-                subject=m["subject"],
-                occurred_at=m["date"],
-                body_enc=encrypt(user.id, m["body"] or m["snippet"]),
-                meta={"message_id": m["message_id_header"]},
-            )
+        ev = Event(
+            user_id=user.id,
+            source="gmail",
+            external_id=m["id"],
+            thread_id=m["thread_id"],
+            kind="email_out" if outgoing else "email_in",
+            from_addr=m["from_addr"],
+            from_name=m["from_name"],
+            to_addrs=m["to"],
+            subject=m["subject"],
+            occurred_at=m["date"],
+            body_enc=encrypt(user.id, m["body"] or m["snippet"]),
+            meta={"message_id": m["message_id_header"]},
         )
+        session.add(ev)
+        if not outgoing and new_inbound is not None:
+            session.flush()
+            new_inbound.append(ev.id)
         if outgoing:
             for addr in m["to"]:
                 if addr != own:
