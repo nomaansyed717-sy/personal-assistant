@@ -71,10 +71,10 @@ def redirect_uri() -> str:
     return get_settings().base_url.rstrip("/") + "/oauth/google/callback"
 
 
-def start_url(session: Session, user_id: int) -> str:
-    """A one-time link the assistant texts to the user."""
+def start_url(session: Session, user_id: int, return_to: str = "chat") -> str:
+    """A one-time link to Google's consent screen. return_to: app | web | chat (where to go afterwards)."""
     token = secrets.token_urlsafe(24)
-    session.add(OAuthState(token=token, user_id=user_id))
+    session.add(OAuthState(token=token, user_id=user_id, return_to=return_to))
     return get_settings().base_url.rstrip("/") + f"/connect/google?s={token}"
 
 
@@ -283,7 +283,9 @@ class GoogleClient:
 def _parse_dt(value: str) -> datetime:
     if len(value) == 10:  # all-day "YYYY-MM-DD"
         return datetime.fromisoformat(value).replace(tzinfo=UTC)
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    # Store UTC: SQLite keeps the wall-clock time and drops the offset, so 10:30 IST would read back as 10:30 UTC.
+    return dt.astimezone(UTC) if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 def _b64(data: str) -> str:

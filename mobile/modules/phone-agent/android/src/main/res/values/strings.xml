@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="aide_agent_label">Aide phone agent</string>
+  <string name="aide_agent_summary">Lets Aide use your apps to do the tasks you ask for</string>
+  <string name="aide_agent_description">When you give Aide a task, such as booking a bus, a train, a flight or a cab, this service reads what is on your screen and taps and types in your apps to get it done. It only runs while a task you started is in progress, and you can stop it any time from the Stop button on screen. It never types passwords or OTPs and never makes payments: it stops and hands over to you to sign in and to pay. Screen content from the task is sent to Aide\'s servers to decide each step and is not used for advertising.</string>
+</resources>

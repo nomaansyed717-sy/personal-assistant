@@ -1,0 +1,112 @@
+{
+  "expo": {
+    "name": "Aide",
+    "slug": "aide",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "aide",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "app.aide.assistant",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "app.aide.assistant",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#0E0F11",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.CAMERA"
+      ],
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "scheme": "aide"
+            }
+          ]
+        }
+      ]
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7F7F5",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76,
+          "dark": {
+            "backgroundColor": "#0B0B0C",
+            "image": "./assets/images/splash-icon-dark.png"
+          }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#F05A28",
+          "icon": "./assets/images/android-icon-monochrome.png"
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Aide uses the microphone when you record a voice note."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Aide uses your photos when you choose one to send.",
+          "cameraPermission": "Aide uses the camera when you take a photo to send."
+        }
+      ],
+      "expo-secure-store",
+      "expo-localization",
+      "expo-web-browser",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Aide uses the microphone when you dictate a message or record a voice note.",
+          "speechRecognitionPermission": "Aide turns your speech into text when you dictate.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.tts"
+          ]
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false,
+      "reactCompiler": true
+    },
+    "description": "Your personal AI chief of staff. Built in India, for the world.",
+    "extra": {
+      "apiUrl": "https://aide-server-y2eu.onrender.com",
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}

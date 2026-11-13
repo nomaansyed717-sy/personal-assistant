@@ -491,6 +491,11 @@ def simulated_result(action) -> str:
     """What a web task or phone call would have done, for demo accounts."""
     p = action.payload or {}
     goal = p.get("goal") or action.preview
+    if action.kind == "phone_task":
+        app = f" in {p['app']}" if p.get("app") else ""
+        return (f"Demo: in a real account your phone would now do this{app}: {goal}. It opens the app, searches, "
+                "picks the best option and fills in the details, then stops for you to sign in and to pay. "
+                "Nothing was booked in this demo.")
     where = p.get("start_url") or "the web"
     return (f"Demo: in a real account I'd now open {where} in the secure browser and do this for you: {goal}. "
             "I'd stop and ask you before paying or sharing anything new. Nothing was booked in this demo.")

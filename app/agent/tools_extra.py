@@ -123,6 +123,46 @@ EXTRA_TOOLS = [
             "required": ["item", "url"],
         },
     },
+    {
+        "name": "app_tools",
+        "description": "List the tools of one of the user's connected apps (see 'Connected apps'), with their input schemas.",
+        "input_schema": {"type": "object", "properties": {"app": {"type": "string", "description": "the app's id, e.g. notion"}},
+                         "required": ["app"]},
+    },
+    {
+        "name": "app_call",
+        "description": "Use a tool of a connected app. Read-only tools run now and return untrusted data. Anything that "
+                       "creates, changes, sends or deletes becomes a proposal the user approves first.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"app": {"type": "string"}, "tool": {"type": "string"},
+                           "arguments": {"type": "object"},
+                           "summary": {"type": "string", "description": "one line for the user: what this will do"}},
+            "required": ["app", "tool"],
+        },
+    },
+    {
+        "name": "create_automation",
+        "description": "Set up an automation that runs when something happens: 'email' (a new email matching sender/subject/"
+                       "text filters) or 'webhook' (a secret URL other services can call, e.g. Stripe or a form). "
+                       "Returns the webhook URL for webhook automations. Use create_task for time-based routines instead.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string"},
+                "source": {"type": "string", "enum": ["email", "webhook"]},
+                "from_contains": {"type": "string"}, "subject_contains": {"type": "string"},
+                "text_contains": {"type": "string"},
+                "instruction": {"type": "string", "description": "what to do each time, e.g. 'draft a reply with our price list'"},
+            },
+            "required": ["title", "source", "instruction"],
+        },
+    },
+    {
+        "name": "list_automations",
+        "description": "The user's automations (event triggers).",
+        "input_schema": {"type": "object", "properties": {}},
+    },
 ]
 
 
@@ -235,3 +275,63 @@ class ExtraTools:
         a = actions.propose(self.session, self.user, "purchase", payload, preview, "chat")
         self.proposed.append(a)
         return f"proposed as #{a.number}; after approval the user gets the checkout link"
+
+    # ---- connected apps (MCP)
+    def t_app_tools(self, app: str) -> str:
+        from app import connectors
+
+        c = connectors.find(self.session, self.user.id, app)
+        if c is None:
+            return f"no connected app called {app}"
+        if c.status != "active":
+            return f"{c.name} needs the user to sign in again under More > Connected apps"
+        if not c.tools:
+            try:
+                connectors.refresh_tools(self.session, c)
+            except connectors.ConnectorError as exc:
+                return f"error: {exc}"
+        return json.dumps([{"tool": t["name"], "description": t["description"], "read_only": t["read_only"],
+                            "input_schema": t["input_schema"]} for t in c.tools])[:12000]
+
+    def t_app_call(self, app: str, tool: str, arguments: dict | None = None, summary: str = "") -> str:
+        from app import connectors
+
+        c = connectors.find(self.session, self.user.id, app)
+        if c is None:
+            return f"no connected app called {app}"
+        info = connectors.tool_info(c, tool)
+        if info is None:
+            return f"{c.name} has no tool called {tool}; call app_tools first"
+        args = arguments or {}
+        if info["read_only"]:
+            try:
+                out = connectors.call(self.session, c, tool, args)
+            except connectors.ConnectorError as exc:
+                return f"error: {exc}"
+            audit(self.session, self.user.id, "app_read", f"{c.name}: {tool}")
+            return untrusted(f"{c.name}:{tool}", out)
+        shown = json.dumps(args, ensure_ascii=False, indent=1)
+        shown = shown if len(shown) < 900 else shown[:900] + " …"
+        preview = f"{summary or f'Use {tool} in {c.name}'}\n{c.name} · {tool}\n{shown}"
+        a = actions.propose(self.session, self.user, "app_action",
+                            {"connector_id": c.id, "app": c.name, "tool": tool, "arguments": args,
+                             "destructive": info.get("destructive", False)}, preview)
+        self.proposed.append(a)
+        return f"proposed #{a.number or ''}: waits for the user's yes" if a.status == "proposed" else "scheduled"
+
+    # ---- automations (event triggers)
+    def t_create_automation(self, title: str, source: str, instruction: str, from_contains: str = "",
+                            subject_contains: str = "", text_contains: str = "") -> str:
+        from app import triggers
+
+        t = triggers.create(self.session, self.user, title, source, instruction,
+                            {"from": from_contains, "subject": subject_contains, "text": text_contains})
+        url = triggers.webhook_url(t)
+        return f"created automation {t.id}: {triggers.describe(t)}" + (f"\nwebhook URL: {url}" if url else "")
+
+    def t_list_automations(self) -> str:
+        from app import triggers
+        from app.models import Trigger
+
+        rows = self.session.scalars(select(Trigger).where(Trigger.user_id == self.user.id)).all()
+        return "\n".join(f"[{t.id}] ({t.status}) {t.title}: {triggers.describe(t)}" for t in rows) or "no automations"

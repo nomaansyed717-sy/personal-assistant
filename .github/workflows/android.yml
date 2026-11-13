@@ -1,0 +1,59 @@
+name: Android APK
+
+# Builds two installable APKs of the Aide Android app on every change to mobile/ and attaches them to the run:
+#   aide-android-apk        the full app, including the phone agent (an accessibility service)
+#   aide-android-apk-lite   the same app without the phone agent
+# Why two: Play Protect's enhanced fraud protection (on in India) blocks installing an app from a browser,
+# chat app or file manager when it declares an accessibility service. The lite build installs anywhere;
+# the full build installs from the Play Store (internal testing), with `adb install`, or with Play Protect
+# scanning switched off for the install. Set the repository variable AIDE_API_URL to your backend's URL.
+on:
+  push:
+    paths: ["mobile/**", ".github/workflows/android.yml"]
+  pull_request:
+    paths: ["mobile/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [full, lite]
+    name: apk (${{ matrix.variant }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run: { working-directory: mobile }
+    env:
+      EXPO_PUBLIC_API_URL: ${{ vars.AIDE_API_URL || 'https://your-app.onrender.com' }}
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm, cache-dependency-path: mobile/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci
+      - name: Leave out the phone agent (lite build)
+        if: matrix.variant == 'lite'
+        # Keep the JS wrapper (it reports the agent as unavailable); drop the native module so it isn't linked.
+        run: rm -rf modules/phone-agent/android modules/phone-agent/expo-module.config.json
+      - run: npx expo prebuild --platform android --no-install
+      - name: Build release APK (signed with the debug key, for testing)
+        working-directory: mobile/android
+        # arm64-v8a covers practically every Android phone sold in recent years and halves the build time.
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+      - name: Check the lite build has no accessibility service
+        if: matrix.variant == 'lite'
+        working-directory: mobile/android
+        run: |
+          if grep -rlq --include=AndroidManifest.xml BIND_ACCESSIBILITY_SERVICE app/build/intermediates/; then
+            echo "The lite APK still declares an accessibility service"; exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.variant == 'lite' && 'aide-android-apk-lite' || 'aide-android-apk' }}
+          path: mobile/android/app/build/outputs/apk/release/*.apk
+          retention-days: 14

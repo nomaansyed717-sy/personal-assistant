@@ -1,6 +1,8 @@
-# Aide: a chief of staff in your contacts list
+# Aide: a chief of staff in your pocket
 
-A personal assistant you text on WhatsApp. It reads your email and calendar and tracks what you've promised and what you're owed. Every morning it texts you the 3 to 5 things that need you, each with a reply ready to send. You approve with a number. Nothing goes out without your yes unless you've explicitly delegated it.
+A personal AI assistant on **Android and the web**, built in India for the world. It reads your email and calendar and tracks what you've promised and what you're owed. Every morning it sends you the 3 to 5 things that need you, each with a reply ready to send. You approve with a tap. Nothing goes out without your yes unless you've explicitly delegated it.
+
+**App-first.** The Android app (`mobile/`, Expo React Native) and the web app (`/app`) are the product; Telegram is an optional second channel. For Google Play, see [`docs/play-store.md`](docs/play-store.md): the Play build leaves out the phone agent. People sign in with a one-time code sent by email or SMS, and messages from the assistant arrive in the app with a push notification. WhatsApp is no longer the main channel: Meta's WhatsApp Business terms have barred general-purpose AI assistants since 15 January 2026. The WhatsApp adapter stays in the code as an optional channel and is off unless its credentials are set.
 
 This repo is **Phases 0–1** of the product spec: the working core you can put in front of design partners. Phases 2–3 (web errands, phone calls, phone and desktop control, our own model) have their interfaces in place, and their executors switch on later.
 
@@ -8,17 +10,22 @@ This repo is **Phases 0–1** of the product spec: the working core you can put 
 
 | Capability | How |
 | --- | --- |
-| **Chat like messaging** | WhatsApp, plus a web app for phone and Mac at `/app` (sign in with a code sent to your WhatsApp) |
+| **Does tasks in your phone's apps** | The "Do it" tab: "book a bus to Aurangabad on Friday night", "book an auto to the station". The Android app's phone agent opens the right app, searches, compares and fills everything in. It stops for you to sign in and before any payment, and never touches UPI, wallet or banking apps |
+| **Chat like messaging** | The Android app and the web app at `/app`. Sign in or sign up with a code sent by email or SMS |
 | **Gets to know you** | Long-term memory learned from chat, which you can view and delete (`what do you remember`, `forget …`, or the Memory page) |
 | **Your goals** | Track goals. Each evening it sends up to 3 concrete next steps (`no ideas` turns this off) |
 | **Keeps working after you close the app** | Standing tasks on a schedule: price watches, appointment-slot checks, invoice chasing, habit reminders. It messages you only when something changed |
 | **Secure computer with a browser** | Approved web tasks run in a headless Chromium on the server: compare options, fill forms, book up to the payment step |
 | **Credential vault** | Logins are encrypted, and only the browser can type them in. The model never sees them, and it can't type into password or card fields |
 | **Sentinel** | An independent reviewer checks every outbound action, blocking secrets, internal addresses (SSRF) and anything you didn't ask for |
+| **Connected apps (MCP)** | Notion, Linear, GitHub, Stripe, or a Zapier / Composio link that reaches thousands of apps. Any MCP server works: sign in with OAuth or paste a token under More > Connected apps. Reads run straight away; anything that creates, changes or sends waits in Approvals |
+| **Automations** | "When an email from billing@ with *invoice* arrives, note the due date and remind me", or a secret webhook URL for Stripe, Shopify, forms and scripts. The event reaches the assistant as data only |
+| **Speak your language** | Tap the mic to dictate in Hindi, Marathi, Tamil, Telugu, Bengali, Gujarati, Kannada, Malayalam, Punjabi, Odia or Urdu on the phone itself; voice notes use Sarvam AI (or OpenAI) with the language you pick |
+| **Telegram** | Link Telegram from Settings: chat there too, and approvals arrive with Approve / Skip buttons |
 | **Works with your apps, builds its own tools** | Gmail and Calendar. 11 built-in skills, including small-business ones (invoice chaser, lead reply, review responder, daily numbers). Teach it new ones with "save this as a skill" |
 | **Saving money, shopping smarter** | Finds subscriptions in your email, runs a subscription audit, watches prices. Purchases end with a checkout link: you pay, never the agent |
-| **Approve critical actions, full audit trail** | Numbered approvals on WhatsApp or approve/skip buttons in the web app. `what did you do today` and `what are you planning` |
-| **Photos, files, voice** | Send a photo, PDF, text file or voice note on WhatsApp (voice needs `OPENAI_API_KEY`) |
+| **Approve critical actions, full audit trail** | Approve or skip from the Approvals tab, with the exact details of what will happen. `what did you do today` and `what are you planning` |
+| **Photos, files, voice** | Send a photo, PDF, text file or voice note from the app (voice needs `OPENAI_API_KEY`) |
 | **Your assistant, your way** | Name it (`call yourself Pumpkin`) and set its personality in Settings |
 | **Open-loop tracking and the daily brief** | Commitments both ways from email, a people graph, and a ranked morning brief with drafts in your voice |
 | **Global** | Time zone from your phone number, replies in your language |
@@ -47,13 +54,13 @@ cp .env.example .env            # set MASTER_KEY and ANTHROPIC_API_KEY at minimu
 docker compose up -d db
 pip install -r requirements-dev.txt
 
-# Try the brain with a sample mailbox, no WhatsApp or Google needed:
+# Try the brain with a sample mailbox, no Google needed:
 python scripts/chat.py --demo
 ```
 
 You'll get the onboarding brief for a sample inbox. Then try `1`, `edit 2: shorter`, `what's open`, `find time with Anika tomorrow`, or `what did you do today`.
 
-Full stack with web and worker: `docker compose up --build`. The simulator endpoint is `POST /dev/simulate {"phone": "+447911123456", "text": "hi"}` and only works while `WHATSAPP_TOKEN` is empty.
+Full stack with web and worker: `docker compose up --build`, then open `http://localhost:8000/app`. In development no email or SMS provider is needed: sign-in codes are printed in the server log. For the Android app, see [`mobile/README.md`](mobile/README.md).
 
 Tests (all external services are mocked):
 
@@ -66,21 +73,18 @@ TEST_DATABASE_URL=postgresql+psycopg://assistant:assistant@localhost:5432/assist
 ### 1. Deploy (Render, one click)
 New → Blueprint → select this repo. `render.yaml` creates the Postgres database, the web service and the worker. Fill in the secrets it asks for. `MASTER_KEY` is generated for you and `BASE_URL` is picked up from Render automatically. `GET /setup-status` lists any settings still missing. Railway, Fly.io or any Docker host work too: run the image twice, once with the worker command `python -m app.worker.run`.
 
-### 2. WhatsApp (Meta)
-1. On developers.facebook.com, create an app of type Business, then add **WhatsApp**.
-2. Add a phone number. This is the assistant's number, the one users save.
-3. Webhook: callback URL `${BASE_URL}/webhooks/whatsapp`, verify token `WHATSAPP_VERIFY_TOKEN`, then subscribe to **messages**.
-4. Create a permanent token from a System User with `whatsapp_business_messaging` and set it as `WHATSAPP_TOKEN`. Set `WHATSAPP_PHONE_NUMBER_ID`, plus `WHATSAPP_APP_SECRET` from App settings → Basic.
-5. **Submit one message template** (Utility category), named `assistant_update`:
-   > Hi {{1}}, I have an update for you. Reply to see it.
+### 2. Sign-in codes and push
+1. **Email codes:** create a [Resend](https://resend.com) account, verify your sending domain, and set `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` and `EMAIL_FROM`. Any SMTP server works too (`EMAIL_PROVIDER=smtp`).
+2. **SMS codes (India):** in MSG91, register a DLT-approved OTP template containing `##OTP##`, then set `SMS_PROVIDER=msg91`, `MSG91_AUTH_KEY` and `MSG91_TEMPLATE_ID`. Twilio works for other countries (`SMS_PROVIDER=twilio`).
+3. **Push:** build the Android app with EAS and add Firebase (FCM V1) credentials, as described in `mobile/README.md`. `EXPO_ACCESS_TOKEN` is optional.
+4. Set `ANDROID_APP_URL` to the Play Store or APK link so the homepage shows a download button.
 
-   WhatsApp only allows free-form messages within 24 hours of the user's last message. Outside that window, the app sends this template and holds the brief until the user replies.
-6. Complete business verification to raise messaging limits beyond test numbers.
+WhatsApp is optional and off by default. Only set `WHATSAPP_*` after getting legal advice that your use fits Meta's Business terms.
 
 ### 3. Google
 1. In console.cloud.google.com, create a project and enable the **Gmail API** and **Google Calendar API**.
 2. OAuth consent screen: External. Add the scopes `gmail.readonly`, `gmail.send`, `calendar.events`, `openid` and `email`.
-3. Credentials: OAuth client (Web). Redirect URI `${BASE_URL}/oauth/google/callback`.
+3. Credentials: OAuth client (Web). Redirect URI `${BASE_URL}/oauth/google/callback`. The Android app opens this same web flow in a browser tab and comes back through the `aide://connected` link.
 4. While the app is in **Testing**, add up to 100 test users. That's enough for the design-partner pilot.
 5. **Before a public launch:** `gmail.readonly` is a restricted scope. It needs Google's OAuth app verification plus an annual third-party security assessment. Start this early, because it takes weeks.
 
@@ -88,7 +92,7 @@ New → Blueprint → select this repo. `render.yaml` creates the Postgres datab
 - Have counsel review `/privacy` and the onboarding consent text for your launch countries: GDPR, CCPA/CPRA, India's DPDP Rules, and others.
 - Back up `MASTER_KEY` in a secrets manager. If it's lost, stored tokens and raw text can't be decrypted.
 
-## What users can text
+## What users can type in chat
 
 | Say | Does |
 | --- | --- |
@@ -114,9 +118,12 @@ New → Blueprint → select this repo. `render.yaml` creates the Postgres datab
 
 ```
 app/
-  main.py               HTTP: WhatsApp webhook, Google OAuth, privacy page, dev simulator
+  main.py               HTTP: Google OAuth (returns to app or web), privacy page, optional WhatsApp webhook, dev simulator
   worker/run.py         Scheduler: sync every 15 min, briefs at local time, undo-window dispatcher, retention
-  channels/             WhatsApp adapter (24h window, templates); console channel for dev. SMS/iMessage/Telegram plug in here
+  messenger.py          Outbound messages: in-app inbox plus push (main), or the legacy WhatsApp channel
+  push.py               Expo push notifications, lock-screen previews on or off
+  otp.py                Sign-in codes by email (Resend, SMTP) or SMS (MSG91, Twilio)
+  channels/             Optional WhatsApp adapter (24h window, templates); console channel for dev. Telegram plugs in here
   integrations/         Google OAuth, Gmail, Calendar (plain REST); incremental sync
   context/              The context engine: commitment extraction, people graph, ranking, voice profile
   agent/
@@ -135,10 +142,14 @@ app/
   sentinel.py           URL and secret rules plus the independent reviewer model
   research.py           web_search (Tavily or Brave) and read_url with SSRF-safe redirects
   vault.py              Encrypted logins, decrypted only inside the browser executor
-  media.py              WhatsApp photos, PDFs, text files and voice notes
+  media.py              Photos, PDFs, text files and voice notes from the app
   migrate.py            Additive schema migrations on startup
-  web/                  Web app (static/app.html), homepage (static/landing.html), JSON API (api.py)
-tests/                  52 tests, including a real headless-browser run, the web app, Sentinel and the full onboarding flow
+  phone_agent.py        The phone agent's brain: next step from the screen, login/OTP/payment hand-overs, safety checks
+  web/phone_api.py      /api/phone: queue a task, the phone asks for each step, reports hand-overs and stops
+  web/                  Web app (static/app.html), homepage (static/landing.html), JSON API (api.py, app_api.py: code sign-in, onboarding, devices, uploads, Today)
+mobile/                 The Android app (Expo React Native): sign-in, setup, Today, Chat, Do it, Approvals, More
+mobile/modules/phone-agent  Kotlin accessibility service that operates other apps for the phone agent
+tests/                  73 tests, including a real headless-browser run, the web app, app sign-in and push, the phone agent, Sentinel and the full onboarding flow
 scripts/chat.py         Terminal chat, with a --demo mailbox
 ```
 

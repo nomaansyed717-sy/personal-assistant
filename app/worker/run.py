@@ -52,6 +52,12 @@ def job_sync() -> None:
                 new = process_pending(s, user, llm)
                 if new:
                     log.info("user %s: %d new commitments", uid, new)
+                if stats.get("new_inbound_ids"):
+                    from app import triggers
+                    from app.agent.agent import run_background
+
+                    triggers.on_new_emails(s, user, stats["new_inbound_ids"],
+                                           lambda sess, u, prompt: run_background(sess, u, prompt, llm))
         except Exception:  # noqa: BLE001 - one user's failure must not stop the others
             log.exception("sync failed for user %s", uid)
 
@@ -107,6 +113,9 @@ def job_daily() -> None:
     with session_scope() as s:
         purged = purge_raw(s, get_settings().raw_retention_days)
         s.execute(delete(OAuthState).where(OAuthState.created_at < utcnow() - timedelta(days=2)))
+        from app.agent.account import purge_unverified
+
+        purge_unverified(s)
         log.info("purged raw text from %d events", purged)
     for uid in _user_ids():
         try:

@@ -1,4 +1,5 @@
-"""Outbound messaging: splitting, persistence, and the WhatsApp 24-hour window."""
+"""Outbound messaging: the in-app inbox with push (the main channel), and the legacy WhatsApp
+channel with its 24-hour window."""
 from datetime import timedelta
 
 from sqlalchemy import select
@@ -40,10 +41,21 @@ def window_open(user: User) -> bool:
     return last is not None and utcnow() - last < WINDOW
 
 
-def send(session: Session, user: User, text: str) -> None:
+def send(session: Session, user: User, text: str, kind: str = "message") -> None:
     """Send now if the session window is open; otherwise queue it and ping with the reopen template."""
     if user.demo:  # live-demo accounts: keep the message for the web app, deliver nothing
         session.add(Message(user_id=user.id, direction="out", channel="demo", body_enc=encrypt(user.id, text)))
+        return
+    if user.channel == "app" or not user.phone:
+        # The app reads the inbox (polling on web, on open in the Android app); a push says something is new.
+        from app import push
+
+        session.add(Message(user_id=user.id, direction="out", channel="app", body_enc=encrypt(user.id, text)))
+        push.notify(session, user, text, kind=kind)
+        if user.telegram_chat_id:
+            from app.channels import telegram
+
+            telegram.mirror(user, text)
         return
     channel = get_channel()
     if channel.has_session_window and not window_open(user):

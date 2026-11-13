@@ -1,5 +1,5 @@
 """The daily brief: today's calendar plus the 3-5 open loops that matter most, each with a ready action."""
-from datetime import datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -19,8 +19,9 @@ HOW_TO_REPLY = "Reply with numbers to go ahead (e.g. *1, 3* or *all*), *edit 2: 
 def todays_events(session: Session, user: User) -> list[Event]:
     tz = zone(user.timezone)
     today = local_now(user.timezone).date()
-    start = datetime.combine(today, time.min, tzinfo=tz)
-    end = start + timedelta(days=1)
+    # Compare in UTC: times are stored in UTC, and SQLite would drop the offset from a local bound.
+    start = datetime.combine(today, time.min, tzinfo=tz).astimezone(UTC)
+    end = datetime.combine(today + timedelta(days=1), time.min, tzinfo=tz).astimezone(UTC)
     return session.scalars(
         select(Event)
         .where(Event.user_id == user.id, Event.source == "calendar", Event.occurred_at >= start, Event.occurred_at < end)

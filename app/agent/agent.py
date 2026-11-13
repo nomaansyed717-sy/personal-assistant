@@ -3,7 +3,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app import skills
+from app import connectors, skills
 from app.agent import actions
 from app.agent.drafts import loop_line, rules_text
 from app.agent.tools import TOOLS, ToolContext, event_summary
@@ -18,7 +18,7 @@ from app.util import local_now
 
 log = logging.getLogger(__name__)
 
-SYSTEM = """You are {assistant_name}, {name}'s personal AI agent, reached over WhatsApp and the {app_name} web app.
+SYSTEM = """You are {assistant_name}, {name}'s personal AI agent, reached in the {app_name} Android and web app.
 You get to know them and their goals, work across every part of their life, close the loops they drop,
 and get things done so they can focus on what matters.
 {persona}
@@ -36,12 +36,16 @@ How you act:
   see passwords. Phone calls are not switched on yet: say so and offer an alternative.
 - Research: web_search and read_url. When the user shares a link (a reel, recipe, product, article),
   read it and turn it into something actionable: a shopping list, a calendar block, a task.
-- Keep working after the chat ends: create_task for watches, checks, routines and follow-through.
+- Keep working after the chat ends: create_task for watches, checks, routines and follow-through on a schedule;
+  create_automation for 'when X happens, do Y' (a matching email arrives, or a webhook from Stripe, a form, Zapier).
 - Goals: track them with add_goal, connect tasks to them, and suggest next steps that move them forward.
 - Skills: use_skill for the procedures listed below; create_skill when the user teaches you a routine.
 - Money: find subscriptions (list_subscriptions, subscription-audit skill), watch prices, compare before buying.
   Purchases go through propose_purchase; the user always checks out themselves. Never handle card numbers,
   passwords or one-time codes.
+- Connected apps (Notion, GitHub, Zapier and anything else under 'Connected apps' below): app_tools to see what an
+  app can do, then app_call. Reading is immediate; creating, changing or sending becomes a proposal. If the user
+  asks for an app that isn't connected, tell them to add it under More > Connected apps.
 - Memory: save_memory for durable facts the user tells you; forget_memory when asked. Use what you know.
 - Health and wellbeing: help with routines, reminders and organising (appointments, habits, meal plans);
   no diagnosis or medical advice; suggest a professional when it matters.
@@ -62,6 +66,9 @@ Standing tasks:
 
 Skills you can use:
 {skills}
+
+Connected apps:
+{apps}
 
 Style notes for writing as {name}:
 {voice}
@@ -105,6 +112,7 @@ def _system(session: Session, user: User, background: bool = False) -> str:
         goals=goals_block(session, user),
         tasks="\n".join(f"- {describe(t, user.timezone)}" for t in tasks) or "- none",
         skills=skills.prompt_block(session, user),
+        apps=connectors.prompt_block(session, user),
         voice=voice_profile(user),
         rules=rules_text(session, user),
         loops="\n".join(f"- [loop {c.id}] {loop_line(c, user.timezone)}" for c in loops) or "- none",
@@ -147,9 +155,13 @@ def respond(session: Session, user: User, text: str, llm: LLM, attachments: list
     history = recent_history(session, user, limit=12)
     # recent_history already contains the message we just recorded as the last user turn.
     messages = _to_messages(history) or [{"role": "user", "content": text}]
+    last = messages[-1]
     if attachments:
-        last = messages[-1]
         last["content"] = [*attachments, {"type": "text", "text": text}]
+    elif last["role"] == "user" and isinstance(last["content"], str) and text and text not in last["content"]:
+        # What we stored is what the user saw (a caption); the model also needs the full text,
+        # e.g. the contents of a text file sent with that caption.
+        last["content"] += "\n\n" + text
     reply, ctx = _loop(session, user, _system(session, user), messages, llm)
     memory.learn_from_message(session, user, text, llm)
     return _with_proposals(reply, ctx) or "Done."

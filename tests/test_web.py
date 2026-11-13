@@ -1,4 +1,4 @@
-"""Web app: homepage, sign-in by WhatsApp code, chat, approvals, memory, tasks, vault, settings, CSRF."""
+"""Web app: homepage, legacy sign-in by WhatsApp code, chat, approvals, memory, tasks, vault, settings, CSRF."""
 import re
 
 from fastapi.testclient import TestClient
@@ -26,9 +26,9 @@ def _signed_in(channel) -> TestClient:
 def test_homepage_and_app_shell_render():
     c = TestClient(app, base_url="https://testserver")
     home = c.get("/")
-    assert home.status_code == 200 and "Your chief of staff lives in your WhatsApp." in home.text
+    assert home.status_code == 200 and "Your chief of staff, in your pocket." in home.text and "wa.me" not in home.text
     shell = c.get("/app")
-    assert shell.status_code == 200 and "Content-Security-Policy" in shell.headers and "Sign in with the WhatsApp number" in shell.text
+    assert shell.status_code == 200 and "Content-Security-Policy" in shell.headers and "one-time code" in shell.text
 
 
 def test_login_requires_the_code_and_csrf(channel):

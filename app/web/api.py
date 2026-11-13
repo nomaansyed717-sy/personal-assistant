@@ -1,9 +1,13 @@
-"""JSON API behind the web app (phone and Mac browsers).
+"""JSON API behind the web app and the Android app.
 
-Sign-in: the user enters their WhatsApp number, gets a 6-digit code on WhatsApp, and receives an
-httpOnly session cookie. Only people who have already messaged the assistant can sign in.
-Every state-changing request must carry the X-Requested-With header (CSRF defence together with
-SameSite=Strict cookies).
+Two ways to authenticate, both backed by WebSession rows:
+- Browsers get an httpOnly, SameSite=Strict session cookie. Every state-changing request must carry
+  the X-Requested-With header (CSRF defence).
+- The Android app sends `Authorization: Bearer <token>`. Bearer tokens are never sent by a browser
+  on its own, so those requests need no CSRF header.
+
+Sign-in by email or SMS code lives in app/web/app_api.py. The older WhatsApp-code sign-in below only
+works for users who came in through WhatsApp.
 """
 import hashlib
 import hmac
@@ -57,9 +61,22 @@ def _csrf(request: Request) -> None:
         raise HTTPException(status_code=403, detail="missing CSRF header")
 
 
+def _bearer(request: Request) -> str | None:
+    auth = request.headers.get("authorization", "")
+    if not auth.lower().startswith("bearer "):
+        return None
+    return auth[7:].strip() or None
+
+
+def session_token(request: Request) -> str | None:
+    return _bearer(request) or request.cookies.get(COOKIE)
+
+
 def current_user_id(request: Request) -> int:
-    _csrf(request)
-    token = request.cookies.get(COOKIE)
+    token = _bearer(request)
+    if not token:
+        _csrf(request)
+        token = request.cookies.get(COOKIE)
     if not token:
         raise HTTPException(status_code=401, detail="sign in")
     with session_scope() as s:
@@ -137,6 +154,7 @@ def _start_session(s, user_id: int, response: Response, days: int = SESSION_DAYS
 
 class DemoStart(BaseModel):
     tz: str = Field(default="Asia/Kolkata", max_length=64)
+    client: str = Field(default="web", pattern="^(web|app)$")  # app: return a bearer token instead of a cookie
 
 
 def _client_ip(request: Request) -> str:
@@ -152,13 +170,18 @@ def demo_start(body: DemoStart, request: Request, response: Response):
         raise HTTPException(status_code=404, detail="the demo is switched off")
     if not demo.allow_new_demo(_client_ip(request)):
         raise HTTPException(status_code=429, detail="Too many demos from here. Try again in an hour.")
+    token = None
     with session_scope() as s:
         user = demo.create_demo_user(s, body.tz, get_settings().app_name)
         uid = user.id
         audit(s, uid, "demo_started", "", actor="user")
-        _start_session(s, uid, response, days=1)
+        if body.client == "app":
+            token = secrets.token_urlsafe(32)
+            s.add(WebSession(token_hash=_hash(token), user_id=uid, expires_at=utcnow() + timedelta(days=1)))
+        else:
+            _start_session(s, uid, response, days=1)
     demo.start_run(uid, "welcome")
-    return {"ok": True}
+    return {"ok": True, "token": token} if token else {"ok": True}
 
 
 def _demo_uid(uid: int) -> int:
@@ -218,7 +241,7 @@ def demo_reset(request: Request, response: Response, uid: int = Depends(current_
 
 @router.post("/logout")
 def logout(request: Request, response: Response, uid: int = Depends(current_user_id)):
-    token = request.cookies.get(COOKIE, "")
+    token = session_token(request) or ""
     with session_scope() as s:
         ws = s.scalar(select(WebSession).where(WebSession.token_hash == _hash(token)))
         if ws:
@@ -230,21 +253,70 @@ def logout(request: Request, response: Response, uid: int = Depends(current_user
 # ------------------------------------------------------------------ me + chat
 
 
+@router.post("/telegram/link")
+def telegram_link(uid: int = Depends(current_user_id)):
+    from app.channels import telegram
+
+    with session_scope() as s:
+        user = s.get(User, uid)
+        if user.demo:
+            raise HTTPException(status_code=403, detail="Telegram needs your own account, not the demo")
+        try:
+            return {"url": telegram.link_url(s, user)}
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.delete("/telegram")
+def telegram_unlink(uid: int = Depends(current_user_id)):
+    with session_scope() as s:
+        user = s.get(User, uid)
+        user.telegram_chat_id = None
+        audit(s, uid, "telegram_unlinked", "", actor="user")
+    return {"ok": True}
+
+
+@router.get("/voice-languages")
+def voice_languages():
+    from app.media import VOICE_LANGUAGES
+
+    return [{"code": k, "name": v} for k, v in VOICE_LANGUAGES.items()]
+
+
 @router.get("/me")
 def me(uid: int = Depends(current_user_id)):
+    from app.models import Connection
+
     with session_scope() as s:
         u = s.get(User, uid)
+        google = s.scalar(select(Connection).where(Connection.user_id == uid, Connection.provider == "google",
+                                                   Connection.status == "active"))
         return {"name": u.name, "assistant_name": u.assistant_name, "persona": u.persona, "timezone": u.timezone,
                 "brief_hour": u.brief_hour, "ideas_enabled": u.ideas_enabled, "training_opt_in": u.training_opt_in,
                 "paused": u.paused, "onboarding_state": u.onboarding_state, "demo": bool(u.demo),
-                "phone": "demo" if u.demo else u.phone[:-4] + "••••"}
+                "phone": "demo" if u.demo else (u.phone[:-4] + "••••" if u.phone else None),
+                "email": _mask_email(u.email), "channel": u.channel, "push_previews": u.push_previews,
+                "voice_language": u.voice_language or "auto",
+                "telegram": {"available": bool(get_settings().telegram_bot_token and get_settings().telegram_bot_username),
+                             "linked": bool(u.telegram_chat_id), "username": u.telegram_username,
+                             "notify": u.telegram_notify},
+                "google": google.account_email if google else None}
+
+
+def _mask_email(email: str | None) -> str | None:
+    if not email or "@" not in email:
+        return None
+    name, domain = email.split("@", 1)
+    return (name[:2] + "•••" if len(name) > 2 else name[:1] + "•••") + "@" + domain
 
 
 @router.get("/messages")
-def messages(uid: int = Depends(current_user_id), limit: int = 60):
+def messages(uid: int = Depends(current_user_id), limit: int = 60, after: int = 0):
     with session_scope() as s:
-        rows = s.scalars(select(Message).where(Message.user_id == uid, Message.direction.in_(["in", "out"]))
-                         .order_by(Message.at.desc(), Message.id.desc()).limit(min(limit, 200))).all()
+        q = select(Message).where(Message.user_id == uid, Message.direction.in_(["in", "out"]))
+        if after:
+            q = q.where(Message.id > after)
+        rows = s.scalars(q.order_by(Message.at.desc(), Message.id.desc()).limit(min(limit, 200))).all()
         return [{"id": m.id, "from": "me" if m.direction == "in" else "assistant", "channel": m.channel,
                  "text": decrypt(uid, m.body_enc) or "", "at": aware(m.at).isoformat()} for m in reversed(rows)]
 
@@ -281,7 +353,7 @@ def chat(body: ChatIn, uid: int = Depends(current_user_id)):
 @router.get("/approvals")
 def approvals(uid: int = Depends(current_user_id)):
     with session_scope() as s:
-        return [{"id": a.id, "number": a.number, "kind": a.kind, "tier": a.tier, "preview": a.preview,
+        return [{"id": a.id, "number": a.number, "kind": a.kind, "tier": a.tier, "preview": actions.card_preview(a.preview),
                  "payload": a.payload, "created_at": aware(a.created_at).isoformat()}
                 for a in actions.open_proposals(s, uid)]
 
@@ -521,6 +593,9 @@ class SettingsIn(BaseModel):
     ideas_enabled: bool | None = None
     training_opt_in: bool | None = None
     paused: bool | None = None
+    push_previews: bool | None = None
+    voice_language: str | None = Field(default=None, max_length=8)
+    telegram_notify: bool | None = None
 
 
 @router.patch("/settings")
@@ -535,7 +610,14 @@ def update_settings(body: SettingsIn, uid: int = Depends(current_user_id)):
             except (ZoneInfoNotFoundError, ValueError) as exc:
                 raise HTTPException(status_code=400, detail="unknown time zone") from exc
             u.timezone = body.timezone
-        for field in ("assistant_name", "persona", "brief_hour", "ideas_enabled", "training_opt_in", "paused"):
+        if body.voice_language is not None:
+            from app.media import VOICE_LANGUAGES
+
+            if body.voice_language not in VOICE_LANGUAGES:
+                raise HTTPException(status_code=400, detail="unsupported language")
+            u.voice_language = body.voice_language
+        for field in ("assistant_name", "persona", "brief_hour", "ideas_enabled", "training_opt_in", "paused",
+                      "push_previews", "telegram_notify"):
             v = getattr(body, field)
             if v is not None:
                 setattr(u, field, v.strip() if isinstance(v, str) else v)

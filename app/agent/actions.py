@@ -33,6 +33,7 @@ KIND_TIERS = {
     "phone_call": 3,
     "desktop_task": 3,
     "phone_task": 3,
+    "app_action": 2,  # a connected app's tool; destructive tools are tier 3
     "payment": 4,
     "purchase": 4,
 }
@@ -51,6 +52,7 @@ LABELS = {
     "phone_call": "phone call",
     "desktop_task": "desktop task",
     "phone_task": "phone task",
+    "app_action": "app action",
     "payment": "payment",
 }
 
@@ -73,6 +75,8 @@ def tier_for(session: Session, user: User, kind: str, payload: dict) -> int:
     tier = KIND_TIERS.get(kind, 3)
     recipients = list(payload.get("to") or []) + list(payload.get("cc") or []) + list(payload.get("attendees") or [])
     if tier == 2 and any(not is_known_contact(session, user.id, r) for r in recipients):
+        tier = 3
+    if kind == "app_action" and payload.get("destructive"):
         tier = 3
     return tier
 
@@ -121,6 +125,13 @@ def propose(
     return action
 
 
+def card_preview(preview: str) -> str:
+    """The proposal text for an approval card in the app, without chat-only instructions
+    ("Reply with the number…"), since the card has its own buttons."""
+    lines = [ln for ln in (preview or "").split("\n") if not ln.strip().lower().startswith("reply with")]
+    return "\n".join(lines).strip()
+
+
 def open_proposals(session: Session, user_id: int) -> list[Action]:
     return session.scalars(
         select(Action).where(Action.user_id == user_id, Action.status == "proposed").order_by(Action.number)
@@ -164,7 +175,7 @@ def execute(session: Session, user: User, action: Action, llm=None) -> str:
         audit(session, user.id, "blocked", f"{_label(action.kind)}: Sentinel: {verdict.reason}", actor="system")
         return f"Sentinel stopped this {_label(action.kind)}: {verdict.reason}. Nothing was sent"
     try:
-        if user.demo and action.kind in ("browser_task", "phone_call"):
+        if user.demo and action.kind in ("browser_task", "phone_call", "phone_task"):
             from app.demo import simulated_result
 
             result = simulated_result(action)
