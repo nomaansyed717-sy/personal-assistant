@@ -1,9 +1,14 @@
-# One-click deploy on Render: New > Blueprint > pick this repo.
-# Fill the "sync: false" secrets in the dashboard when prompted. MASTER_KEY is generated;
-# BASE_URL comes from RENDER_EXTERNAL_URL. Back up MASTER_KEY: losing it makes stored data unreadable.
+# Deploy on Render: New > Blueprint > pick this repo (branch app-first).
+# Fill the "sync: false" values when Render asks. Only the sign-in email settings are needed to log in;
+# leave the rest empty until you have them. MASTER_KEY is generated; BASE_URL comes from RENDER_EXTERNAL_URL.
+# Back up MASTER_KEY: losing it makes stored data unreadable.
+#
+# This runs on Render's free plan: one web service (the scheduler runs inside it) and a free Postgres.
+# Free services sleep after 15 minutes without traffic (the first request then takes about a minute), and a
+# free database is deleted after 30 days. For real users, change both plans to starter / basic-256mb.
 databases:
   - name: assistant-db
-    plan: basic-256mb
+    plan: free
     postgresMajorVersion: "16"
 
 envVarGroups:
@@ -11,12 +16,17 @@ envVarGroups:
     envVars:
       - { key: ENV, value: prod }
       - { key: APP_NAME, value: Aide }
-      - { key: RUN_WORKER_IN_WEB, value: "false" }  # the worker service below runs the scheduler
+      - { key: RUN_WORKER_IN_WEB, value: "true" }  # scheduler runs in the web service
       - { key: MASTER_KEY, generateValue: true }
-      - { key: ANTHROPIC_API_KEY, sync: false }
-      - { key: EMAIL_PROVIDER, value: resend }
-      - { key: RESEND_API_KEY, sync: false }
+      # Sign-in codes by email. Gmail: EMAIL_PROVIDER=smtp, SMTP_HOST=smtp.gmail.com, SMTP_USER=you@gmail.com,
+      # SMTP_PASSWORD=a Google app password, EMAIL_FROM="Aide <you@gmail.com>". Or EMAIL_PROVIDER=resend + RESEND_API_KEY.
+      - { key: EMAIL_PROVIDER, sync: false }
       - { key: EMAIL_FROM, sync: false }
+      - { key: SMTP_HOST, sync: false }
+      - { key: SMTP_USER, sync: false }
+      - { key: SMTP_PASSWORD, sync: false }
+      - { key: RESEND_API_KEY, sync: false }
+      - { key: ANTHROPIC_API_KEY, sync: false }
       - { key: SMS_PROVIDER, value: msg91 }
       - { key: MSG91_AUTH_KEY, sync: false }
       - { key: MSG91_TEMPLATE_ID, sync: false }
@@ -26,20 +36,11 @@ envVarGroups:
 
 services:
   - type: web
-    name: assistant-web
+    name: aide-server
     runtime: docker
-    plan: starter
+    plan: free
+    branch: app-first
     healthCheckPath: /health
-    envVars:
-      - fromGroup: assistant-secrets
-      - key: DATABASE_URL
-        fromDatabase: { name: assistant-db, property: connectionString }
-
-  - type: worker
-    name: assistant-worker
-    runtime: docker
-    plan: starter
-    dockerCommand: python -m app.worker.run
     envVars:
       - fromGroup: assistant-secrets
       - key: DATABASE_URL

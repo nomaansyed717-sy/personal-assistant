@@ -58,19 +58,29 @@ function headers(json = true): Record<string, string> {
   return h;
 }
 
+/** The address builds get when no backend URL was set at build time. */
+const PLACEHOLDER_HOST = 'your-app.onrender.com';
+const host = () => API_URL.replace(/^https?:\/\//, '');
+
 async function handle<T>(r: Response): Promise<T> {
-  const data = await r.json().catch(() => ({}));
+  const isJson = (r.headers.get('content-type') || '').includes('application/json');
+  const data = isJson ? await r.json().catch(() => ({})) : {};
   if (r.status === 401 && token) {
     onUnauthorized?.();
   }
   if (!r.ok) {
-    const detail = typeof data?.detail === 'string' ? data.detail : 'Something went wrong. Please try again.';
-    throw new ApiError(detail, r.status);
+    if (typeof data?.detail === 'string') throw new ApiError(data.detail, r.status);
+    // Not our API answering (a host's "not found" page, a proxy error): say so plainly.
+    if (!isJson) throw new ApiError(`Aide's server at ${host()} isn't responding (${r.status}). Try again in a minute.`, r.status);
+    throw new ApiError('Something went wrong. Please try again.', r.status);
   }
   return data as T;
 }
 
 export async function api<T = any>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
+  if (API_URL.includes(PLACEHOLDER_HOST)) {
+    throw new ApiError('This build isn’t connected to a server yet. Set AIDE_API_URL and rebuild the app.', 0);
+  }
   let r: Response;
   try {
     r = await fetch(API_URL + '/api' + path, {
@@ -79,7 +89,7 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     });
   } catch {
-    throw new ApiError("Can't reach the server. Check your connection.", 0);
+    throw new ApiError(`Can’t reach Aide’s server at ${host()}. Check your internet connection and try again.`, 0);
   }
   return handle<T>(r);
 }
@@ -102,7 +112,7 @@ export async function upload(file: UploadFile, opts: { caption?: string; voice?:
   try {
     r = await fetch(API_URL + '/api/chat/upload', { method: 'POST', headers: headers(false), body: fd });
   } catch {
-    throw new ApiError("Can't reach the server. Check your connection.", 0);
+    throw new ApiError(`Can’t reach Aide’s server at ${host()}. Check your internet connection and try again.`, 0);
   }
   return handle<{ reply: string; transcript: string | null }>(r);
 }
